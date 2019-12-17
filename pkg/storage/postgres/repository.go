@@ -5,9 +5,6 @@ package postgres
 
 import (
 	"database/sql"
-
-	"github.com/slim-crown/Issue-1/pkg/domain/channel"
-	"github.com/slim-crown/Issue-1/pkg/domain/user"
 )
 
 /*
@@ -25,8 +22,8 @@ type Row interface {
 */
 
 type repository struct {
-	dbConnection *sql.DB
-	allRepos     *map[string]interface{}
+	db       *sql.DB
+	allRepos *map[string]interface{}
 }
 
 // UserRepository ...
@@ -43,23 +40,3 @@ type FeedRepository repository
 
 // ReleaseRepository ...
 type ReleaseRepository repository
-
-// NewUserRepository ...
-func NewUserRepository(dbConnection *sql.DB, allRepos *map[string]interface{}) *UserRepository {
-	return &UserRepository{dbConnection, allRepos}
-}
-
-// AddUser ...
-func (repo *UserRepository) AddUser(user *user.User) error {
-	return nil
-}
-
-// NewChannelRepository ...
-func NewChannelRepository(dbConnection *sql.DB, allRepos *map[string]interface{}) *ChannelRepository {
-	return &ChannelRepository{dbConnection, allRepos}
-}
-
-// AddChannel ...
-func (repo *ChannelRepository) AddChannel(channel *channel.Channel) error {
-	return nil
-}

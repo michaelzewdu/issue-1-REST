@@ -1,15 +1,15 @@
-package postgres
+package release
 
 import "time"
 
 // Release represents an atomic work of creativity.
 type Release struct {
-	id           int
-	owner        User
-	metadata     Metadata
-	contentType  string
-	content      ContentGetter
-	creationTime time.Time
+	ID            int
+	OwnerUsername string
+	Metadata      Metadata
+	ContentType   string
+	Content       ContentGetter
+	CreationTime  time.Time
 }
 
 // ContentGetter is an interface that allows us to get the content as a byte slice.
