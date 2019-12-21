@@ -4,7 +4,7 @@ Repository interfaces defined in the domain packages */
 package memory
 
 import (
-	"github.com/slim-crown/Issue-1/pkg/domain/user"
+	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
 )
 
 // UserRepository ...

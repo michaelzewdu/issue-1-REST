@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
-	"github.com/slim-crown/Issue-1/pkg/domain/user"
+	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
 
 	"github.com/gorilla/mux"
 )
@@ -32,17 +33,17 @@ func postUser(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 		} else {
 			err := json.NewDecoder(r.Body).Decode(&user)
 			if err != nil {
-				var data struct {
+				var responseData struct {
 					Data string `json:"message"`
 				}
-				data.Data = `bad request, use format
+				responseData.Data = `bad request, use format
 				{"username":"username",
 				"passHash":"passHash",
 				"email":"email",
 				"firstName":"firstName",
 				"middleName":"middleName",
 				"lastName":"lastName"}`
-				response.Data = data
+				response.Data = responseData
 				(*logger).Log("bad update user request")
 				w.WriteHeader(http.StatusBadRequest)
 				encoder.Encode(response)
@@ -51,25 +52,25 @@ func postUser(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 		}
 		{ // this block checks for required fields
 			if user.Username == "" {
-				var data struct {
+				var responseData struct {
 					Data string `json:"username"`
 				}
-				data.Data = "username is required"
-				response.Data = data
+				responseData.Data = "username is required"
+				response.Data = responseData
 			}
 			if user.PassHash == "" {
-				var data struct {
+				var responseData struct {
 					Data string `json:"passHash"`
 				}
-				data.Data = "passHash is required"
-				response.Data = data
+				responseData.Data = "passHash is required"
+				response.Data = responseData
 			}
 			if user.FirstName == "" {
-				var data struct {
+				var responseData struct {
 					Data string `json:"firstName"`
 				}
-				data.Data = "firstName is required"
-				response.Data = data
+				responseData.Data = "firstName is required"
+				response.Data = responseData
 			}
 		}
 		if response.Data != nil {
@@ -81,12 +82,12 @@ func postUser(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 
 			if err := (*service).AddUser(&user); err != nil {
 				(*logger).Log("adding of user failed because: %s", err.Error())
-				var data struct {
+				var responseData struct {
 					Data string `json:"message"`
 				}
 				response.Status = "error"
-				data.Data = "server error when adding user"
-				response.Data = data
+				responseData.Data = "server error when adding user"
+				response.Data = responseData
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
 				response.Status = "success"
@@ -111,11 +112,11 @@ func getUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 		user, err := (*service).GetUser(username)
 		if err != nil {
 			(*logger).Log("fetching of user failed because: %s", err.Error())
-			var data struct {
+			var responseData struct {
 				Data string `json:"username"`
 			}
-			data.Data = fmt.Sprintf("username %s not found", username)
-			response.Data = data
+			responseData.Data = fmt.Sprintf("username %s not found", username)
+			response.Data = responseData
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			response.Status = "success"
@@ -141,34 +142,21 @@ func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 		pattern := ""
 		limit := 25
 		offset := 0
-		var sortBy, sortOrder string
 
+		var sortBy user.SortBy
+		var sortOrder user.SortOrder
 		{ // this block reads the query strings if any
-			switch sortByQuery := r.URL.Query().Get("sortBy"); sortByQuery {
-			case "username":
-				sortBy = user.SortByUsername
-			case "first-name":
-				sortBy = user.SortByFirstName
-			case "last-name":
-				sortBy = user.SortByLastName
-			default:
-				sortBy = user.SortCreationTime
-				sortOrder = user.SortDescending
-			}
-			switch sortOrderQuery := r.URL.Query().Get("sortOrder"); sortOrderQuery {
-			case "dsc":
-				sortOrder = user.SortDescending
-			default:
-				sortOrder = user.SortAscending
-			}
+			pattern = r.URL.Query().Get("pattern")
+
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
 					(*logger).Log("bad get users request, limit")
-					var data struct {
+					var responseData struct {
 						Data string `json:"limit"`
 					}
-					data.Data = "bad request, limit can't be negative"
+					responseData.Data = "bad request, limit can't be negative"
+					response.Data = responseData
 					w.WriteHeader(http.StatusBadRequest)
 				}
 			}
@@ -176,28 +164,53 @@ func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
 					(*logger).Log("bad request, offset")
-					var data struct {
+					var responseData struct {
 						Data string `json:"offset"`
 					}
-					data.Data = "bad request, offset can't be negative"
-					response.Data = data
+					responseData.Data = "bad request, offset can't be negative"
+					response.Data = responseData
 					w.WriteHeader(http.StatusBadRequest)
 				}
 			}
-			// pattern = r.URL.Query().Get("pattern")
+
+			sort := r.URL.Query().Get("pattern")
+			sortSplit := strings.Split(sort, "_")
+
+			sortOrder = user.SortAscending
+			switch sortByQuery := sortSplit[0]; sortByQuery {
+			case "username":
+				sortBy = user.SortByUsername
+			case "firstname":
+				sortBy = user.SortByFirstName
+			case "lastname":
+				sortBy = user.SortByLastName
+			default:
+				sortBy = user.SortCreationTime
+				sortOrder = user.SortDescending
+			}
+			if len(sortSplit) > 1 {
+				switch sortOrderQuery := sortSplit[1]; sortOrderQuery {
+				case "dsc":
+					sortOrder = user.SortDescending
+				default:
+					sortOrder = user.SortAscending
+				}
+			}
+
 		}
 		// if queries are clean
+		(*logger).Log("testing: %s", string(sortBy))
 		if response.Data == nil {
 			users, err := (*service).SearchUser(pattern, sortBy, sortOrder, limit, offset)
 			if err != nil {
 				(*logger).Log("fetching of users failed because: %s", err.Error())
 
-				var data struct {
+				var responseData struct {
 					Data string `json:"message"`
 				}
 				response.Status = "error"
-				data.Data = "server error when getting users"
-				response.Data = data
+				responseData.Data = "server error when getting users"
+				response.Data = responseData
 				w.WriteHeader(http.StatusInternalServerError)
 			} else {
 				response.Status = "success"
@@ -224,11 +237,11 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 		err := json.NewDecoder(r.Body).Decode(&user)
 
 		if err != nil {
-			var data struct {
+			var responseData struct {
 				Data string `json:"message"`
 			}
-			data.Data = "bad request"
-			response.Data = data
+			responseData.Data = "bad request"
+			response.Data = responseData
 			(*logger).Log("bad update user request")
 			w.WriteHeader(http.StatusBadRequest)
 		} else {
@@ -243,12 +256,12 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 				err := (*service).AddUser(&user)
 				if err != nil {
 					(*logger).Log("adding of user failed because: %s", err.Error())
-					var data struct {
+					var responseData struct {
 						Data string `json:"message"`
 					}
 					response.Status = "error"
-					data.Data = "server error when adding user"
-					response.Data = data
+					responseData.Data = "server error when adding user"
+					response.Data = responseData
 					w.WriteHeader(http.StatusInternalServerError)
 				} else {
 					response.Status = "success"
@@ -259,11 +272,11 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 
 				// check data for bad request
 				if user.FirstName == "" && user.Username == "" && user.Email == "" && user.LastName == "" && user.MiddleName == "" && user.PassHash == "" {
-					var data struct {
+					var responseData struct {
 						Data string `json:"message"`
 					}
-					data.Data = "bad request"
-					response.Data = data
+					responseData.Data = "bad request"
+					response.Data = responseData
 					w.WriteHeader(http.StatusBadRequest)
 				} else {
 					(*logger).Log("trying to update user %s", username, user.Username, user.PassHash, user.Email, user.FirstName, user.MiddleName, user.LastName)
@@ -272,12 +285,12 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 
 						(*logger).Log("update of user failed because: %s", err.Error())
 
-						var data struct {
+						var responseData struct {
 							Data string `json:"message"`
 						}
-						data.Data = "server error when updating user"
+						responseData.Data = "server error when updating user"
 						response.Status = "error"
-						response.Data = data
+						response.Data = responseData
 						w.WriteHeader(http.StatusNotFound)
 					} else {
 						(*logger).Log("success update user %s", username, user.Username, user.PassHash, user.Email, user.FirstName, user.MiddleName, user.LastName)
@@ -306,11 +319,11 @@ func deleteUser(service *user.Service, logger *Logger) func(w http.ResponseWrite
 		err := (*service).DeleteUser(username)
 		if err != nil {
 			(*logger).Log("deletion of user failed because: %s", err.Error())
-			var data struct {
+			var responseData struct {
 				Data string `json:"username"`
 			}
-			data.Data = fmt.Sprintf("username %s not found", username)
-			response.Data = data
+			responseData.Data = fmt.Sprintf("username %s not found", username)
+			response.Data = responseData
 			w.WriteHeader(http.StatusNotFound)
 		} else {
 			response.Status = "success"

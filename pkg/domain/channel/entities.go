@@ -6,10 +6,10 @@ import "time"
 // under adminstration by certain users.
 type Channel struct {
 	username, name, description string
-	owner                       User
-	admins                      []User
-	posts                       []Post
-	stickiedPosts               [2]Post
-	catalog                     []Release
+	ownerUsername               string
+	adminUsernames              []string
+	postIDs                     []int
+	stickiedPostIDs             [2]int
+	catalogIDs                  []int
 	creationTime                time.Time
 }

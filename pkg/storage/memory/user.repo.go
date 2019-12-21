@@ -1,11 +1,11 @@
 package memory
 
 import (
-	"github.com/slim-crown/Issue-1/pkg/domain/user"
+	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
 )
 
 // NewUserRepository returns a new in memory cache implementation of user.Repository.
-// The databse implementation of user.Repository must be passed as the first argument
+// The database implementation of user.Repository must be passed as the first argument
 // since to simplify logic, cache repos wrap the database repos.
 // A map of all the other cache based implementations of the Repository interfaces
 // found in the different services of the project must be passed as a second argument as

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/slim-crown/Issue-1/pkg/domain/user"
+	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
 
-	"github.com/slim-crown/Issue-1/pkg/storage/memory"
+	"github.com/slim-crown/Issue-1-REST/pkg/storage/memory"
 
-	"github.com/slim-crown/Issue-1/pkg/http/rest"
-	"github.com/slim-crown/Issue-1/pkg/storage/postgres"
+	"github.com/slim-crown/Issue-1-REST/pkg/http/rest"
+	"github.com/slim-crown/Issue-1-REST/pkg/storage/postgres"
 
 	_ "github.com/lib/pq"
 )

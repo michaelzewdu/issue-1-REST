@@ -12,7 +12,7 @@ type Service interface {
 	GetUser(username string) (*User, error)
 	UpdateUser(username string, u *User) error
 	DeleteUser(username string) error
-	SearchUser(pattern, sortBy, sortOrder string, limit, offset int) ([]*User, error)
+	SearchUser(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*User, error)
 	PassHashIsCorrect(username, passHash string) (bool, error)
 	BookmarkPost(username string, postID int) error
 }
@@ -28,15 +28,18 @@ type Repository interface {
 	BookmarkPost(username string, postID int) error
 }
 
+type SortOrder string
+type SortBy string
+
 // Sorting constants used by SearchUser methods
 const (
-	SortAscending  = "ASC"
-	SortDescending = "DESC"
+	SortAscending SortOrder  = "ASC"
+	SortDescending SortOrder = "DESC"
 
-	SortCreationTime = "creation_time"
-	SortByUsername   = "username"
-	SortByFirstName  = "first_name"
-	SortByLastName   = "last_name"
+	SortCreationTime SortBy = "creation_time"
+	SortByUsername SortBy   = "username"
+	SortByFirstName SortBy  = "first_name"
+	SortByLastName SortBy   = "last_name"
 )
 
 type service struct {
@@ -53,7 +56,7 @@ func NewService(repo *Repository, allServices *map[string]interface{}) Service {
 func (service *service) AddUser(user *User) error {
 	// TODO - check if username is occupied by a channel
 	if u, _ := service.GetUser(user.Username); u != nil {
-		return fmt.Errorf("The username %s is occupied", (*user).Username)
+		return fmt.Errorf("the username %s is occupied", (*user).Username)
 	}
 	return (*service.repo).AddUser(user)
 }
@@ -88,12 +91,12 @@ func (service *service) DeleteUser(username string) error {
 // SearchUser returns a list of users that match against the pattern.
 // If pattern is empty, it returns all users.
 // Sorting and pagination can be specified.
-func (service *service) SearchUser(pattern, sortBy, sortOrder string, limit, offset int) ([]*User, error) {
+func (service *service) SearchUser(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*User, error) {
 	// TODO - check for valid sort method
 	if limit < 0 || offset < 0 {
 		return nil, fmt.Errorf("invalid pagination")
 	}
-	return (*service.repo).SearchUser(pattern, sortBy, sortOrder, limit, offset)
+	return (*service.repo).SearchUser(pattern, string(sortBy), string(sortOrder), limit, offset)
 }
 
 // PassHashIsCorrect checks the given pass hash agains the pass hash found in the database for the username.
