@@ -26,9 +26,6 @@ type repository struct {
 	allRepos *map[string]interface{}
 }
 
-// UserRepository ...
-type UserRepository repository
-
 // ChannelRepository ...
 type ChannelRepository repository
 
