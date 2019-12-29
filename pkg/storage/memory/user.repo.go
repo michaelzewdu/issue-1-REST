@@ -1,8 +1,17 @@
 package memory
 
 import (
-	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
+	"time"
 )
+
+
+// UserRepository ...
+type UserRepository struct {
+	cache         map[string]user.User
+	secondaryRepo *user.Repository
+	allRepos      *map[string]interface{}
+}
 
 // NewUserRepository returns a new in memory cache implementation of user.Repository.
 // The database implementation of user.Repository must be passed as the first argument
@@ -23,18 +32,18 @@ func (repo *UserRepository) AddUser(u *user.User) error {
 // GetUser retrives a user.User based on the username passed.
 func (repo *UserRepository) GetUser(username string) (*user.User, error) {
 	if _, ok := repo.cache[username]; ok == false {
-		err := repo.recacheUser(username)
+		err := repo.cacheUser(username)
 		if err != nil {
 			return nil, err
 		}
 	}
-	user := repo.cache[username]
-	return &user, nil
+	u := repo.cache[username]
+	return &u, nil
 
 }
 
-// recacheUser is just a helper function
-func (repo *UserRepository) recacheUser(username string) error {
+// cacheUser is just a helper function
+func (repo *UserRepository) cacheUser(username string) error {
 	u, err := (*repo.secondaryRepo).GetUser(username)
 	if err != nil {
 		return err
@@ -48,15 +57,16 @@ func (repo *UserRepository) UpdateUser(username string, u *user.User) error {
 	err := (*repo.secondaryRepo).UpdateUser(username, u)
 	if err == nil {
 		// If updating in the DB repo is successful, it updates its cache by getting
-		// the new user.User and converting it into a cachable format.
+		// the new user.User and converting it into a cache able format.
 		if u.Username != "" {
 			// if the username is changed, use the new username from the struct to update the cache
-			err = repo.recacheUser(u.Username)
+			err = repo.cacheUser(u.Username)
 			if err != nil {
 				return err
 			}
 		} else {
-			err = repo.recacheUser(username)
+			delete(repo.cache, u.Username)
+			err = repo.cacheUser(username)
 			if err != nil {
 				return err
 			}
@@ -81,14 +91,17 @@ func (repo *UserRepository) SearchUser(pattern, sortBy, sortOrder string, limit,
 	// TODO: memory.UserRepository.SerarchUser method
 	result, err := (*repo.secondaryRepo).SearchUser(pattern, sortBy, sortOrder, limit, offset)
 	if err == nil {
-		for _, user := range result {
-			repo.cache[user.Username] = *user
+		for _, u := range result {
+			uTemp := *u
+			repo.cache[u.Username] = uTemp
+			u.Email = ""
+			u.BookmarkedPosts = make(map[int]time.Time)
 		}
 	}
 	return result, err
 }
 
-// PassHashIsCorrect calls the DB repo PassHashIsCorrect function. checks the given pass hash agains the pass hash found in the database for the username.
+// PassHashIsCorrect calls the DB repo PassHashIsCorrect function. checks the given pass hash against the pass hash found in the database for the username.
 func (repo *UserRepository) PassHashIsCorrect(username, passHash string) bool {
 	return (*repo.secondaryRepo).PassHashIsCorrect(username, passHash)
 }
@@ -96,11 +109,33 @@ func (repo *UserRepository) PassHashIsCorrect(username, passHash string) bool {
 // BookmarkPost calls the DB repo BookmarkPost function.
 func (repo *UserRepository) BookmarkPost(username string, postID int) error {
 	err := (*repo.secondaryRepo).BookmarkPost(username, postID)
-	if err != nil {
-		err = repo.recacheUser(username)
+	if err == nil {
+		err = repo.cacheUser(username)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return err
+}
+
+// DeleteBookmark calls the DB repo BookmarkPost function.
+func (repo *UserRepository) DeleteBookmark(username string, postID int) error {
+	err := (*repo.secondaryRepo).DeleteBookmark(username, postID)
+	if err == nil {
+		err = repo.cacheUser(username)
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+// UsernameOccupied calls the DB repo UsernameOccupied function.
+func (repo *UserRepository) UsernameOccupied(username string) (bool, error) {
+	return (*repo.secondaryRepo).UsernameOccupied(username)
+}
+
+// EmailOccupied calls the DB repo EmailOccupied function.
+func (repo *UserRepository) EmailOccupied(email string) (bool, error) {
+	return (*repo.secondaryRepo).EmailOccupied(email)
 }

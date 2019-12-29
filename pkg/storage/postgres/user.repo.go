@@ -3,10 +3,14 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"time"
 
-	"github.com/slim-crown/Issue-1-REST/pkg/domain/user"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
+
+// UserRepository ...
+type UserRepository repository
 
 // NewUserRepository returns a new in PostgreSQL implementation of user.Repository.
 // the databse connection must be passed as the first argument
@@ -22,12 +26,12 @@ func NewUserRepository(DB *sql.DB, allRepos *map[string]interface{}) *UserReposi
 func (repo *UserRepository) AddUser(u *user.User) error {
 	var err error
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".users (username, email, pass_hash)
-							VALUES ($1, $2, $3)`, u.Username, u.Email, u.PassHash)
+							VALUES ($1, $2, $3)`, u.Username, u.Email, u.Password)
 	if err != nil {
 		return fmt.Errorf("insertion of user failed because of: %s", err.Error())
 	}
 
-	// set the username to zero to avoid call to UpdateUser won't do redudnant updating of username
+	// set the username to zero to avoid call to UpdateUser won't do redundant updating of username
 	username := u.Username
 	u.Username = ""
 
@@ -40,17 +44,17 @@ func (repo *UserRepository) AddUser(u *user.User) error {
 	return nil
 }
 
-// GetUser retrives a user.User based on the username passed.
+// GetUser retrieves a user.User based on the username passed.
 func (repo *UserRepository) GetUser(username string) (*user.User, error) {
 	var err error
-	var u *user.User = new(user.User)
+	var u = new(user.User)
 
 	var creationTimeString string
 	err = repo.db.QueryRow(`SELECT email, COALESCE(first_name, ''), COALESCE(middle_name, ''), COALESCE(last_name, ''), creation_time
 							FROM "issue#1".users
 							WHERE username = $1`, username).Scan(&u.Email, &u.FirstName, &u.MiddleName, &u.LastName, &creationTimeString)
 	if err != nil {
-		return nil, fmt.Errorf("scanning Row from users failed because of: %s", err.Error())
+		return nil, user.ErrUserNotFound
 	}
 
 	bio, err := repo.getBio(username)
@@ -100,7 +104,7 @@ func (repo *UserRepository) getBookmarkedPosts(username string) (map[int]time.Ti
 		creationTimeString string
 	)
 
-	rows, err := repo.db.Query(`SELECT post_id, creation_time 
+	rows, err := repo.db.Query(`SELECT post_id, creation_time
 								FROM "issue#1".user_bookmarks 
 								WHERE username = $1`, username)
 	if err != nil {
@@ -125,49 +129,49 @@ func (repo *UserRepository) getBookmarkedPosts(username string) (map[int]time.Ti
 
 // UpdateUser updates a user based on the passed user.User struct.
 // If updating in the DB repo is successful, it updates its cache by getting
-// the new user.User and converting it into a cachable format.
+// the new user.User and converting it into a cach able format.
 func (repo *UserRepository) UpdateUser(username string, u *user.User) error {
 	var err error
 
 	// if err != nil {
-	// 	return fmt.Errorf("creation of update statment faild because of: %s", err.Error())
+	// 	return fmt.Errorf("creation of update statement failed because of: %s", err.Error())
 	// }
 	// Checks if value is to be updated before attempting.
 	// This way, there won't be columns with go's zero string value of "" instead of null
 	if u.Username != "" {
-		err = repo.execUpdateStatmentOnColumn("username", u.Username, username)
+		err = repo.execUpdateStatementOnColumn("username", u.Username, username)
 		if err != nil {
 			return err
 		}
 		// change username for subsequent calls if username changed
 		username = u.Username
 	}
-	if u.PassHash != "" {
-		err = repo.execUpdateStatmentOnColumn("pass_hash", u.PassHash, username)
+	if u.Password != "" {
+		err = repo.execUpdateStatementOnColumn("pass_hash", u.Password, username)
 		if err != nil {
 			return err
 		}
 	}
 	if u.Email != "" {
-		err = repo.execUpdateStatmentOnColumn("email", u.Email, username)
+		err = repo.execUpdateStatementOnColumn("email", u.Email, username)
 		if err != nil {
 			return err
 		}
 	}
 	if u.FirstName != "" {
-		err = repo.execUpdateStatmentOnColumn("first_name", u.FirstName, username)
+		err = repo.execUpdateStatementOnColumn("first_name", u.FirstName, username)
 		if err != nil {
 			return err
 		}
 	}
 	if u.MiddleName != "" {
-		err = repo.execUpdateStatmentOnColumn("middle_name", u.MiddleName, username)
+		err = repo.execUpdateStatementOnColumn("middle_name", u.MiddleName, username)
 		if err != nil {
 			return err
 		}
 	}
 	if u.LastName != "" {
-		err = repo.execUpdateStatmentOnColumn("last_name", u.LastName, username)
+		err = repo.execUpdateStatementOnColumn("last_name", u.LastName, username)
 		if err != nil {
 			return err
 		}
@@ -184,8 +188,8 @@ func (repo *UserRepository) UpdateUser(username string, u *user.User) error {
 	return nil
 }
 
-// execUpdateStatmentOnColumn is just a helper function
-func (repo *UserRepository) execUpdateStatmentOnColumn(column, value, username string) error {
+// execUpdateStatementOnColumn is just a helper function
+func (repo *UserRepository) execUpdateStatementOnColumn(column, value, username string) error {
 	_, err := repo.db.Exec(fmt.Sprintf(`UPDATE "issue#1".users 
 									SET %s = $1 
 									WHERE username = $2`, column), value, username)
@@ -265,7 +269,7 @@ func (repo *UserRepository) SearchUser(pattern, sortBy, sortOrder string, limit,
 	return users, nil
 }
 
-// PassHashIsCorrect checks the given pass hash agains the pass hash found in the database for the username.
+// PassHashIsCorrect checks the given pass hash against the pass hash found in the database for the username.
 func (repo *UserRepository) PassHashIsCorrect(username, passHash string) bool {
 	var temp string
 	err := repo.db.QueryRow(`SELECT username FROM "issue#1".users
@@ -273,15 +277,60 @@ func (repo *UserRepository) PassHashIsCorrect(username, passHash string) bool {
 	if err != nil {
 		return false
 	}
-	return false
+	return true
 }
 
 // BookmarkPost bookmarks the given postID for the user of the given username.
 func (repo *UserRepository) BookmarkPost(username string, postID int) error {
-	_, err := repo.db.Exec(`INSERT INTO "issue#1".user_bookmarks (username, post_id)
-							VALUES ($1, $2)`, username, postID)
+	// TODO code for upserts in repo
+	_, err := repo.db.Exec(`INSERT INTO user_bookmarks (username, post_id)
+							VALUES ($1, $2)
+							ON CONFLICT DO NOTHING`, username, postID)
+	const foreignKeyViolationErrorCode = pq.ErrorCode("23503")
 	if err != nil {
-		return fmt.Errorf("bookmarking of post failed because of: %s", err.Error())
+		if pgErr, isPGErr := err.(pq.Error); !isPGErr {
+			if pgErr.Code != foreignKeyViolationErrorCode {
+				return user.ErrPostNotFound
+			}
+			return fmt.Errorf("inserting into user_bookmarks failed because of: %s", err.Error())
+		}
 	}
 	return nil
+}
+
+// DeleteBookmark removes the given ID from the given user's bookmarks
+func (repo *UserRepository) DeleteBookmark(username string, postID int) error {
+	_, err := repo.db.Exec(`DELETE FROM "issue#1".user_bookmarks
+							WHERE username = $1 AND post_id = $2`, username, postID)
+	if err != nil {
+		return fmt.Errorf("deletion of tuple from user_bookmarks because of: %s", err.Error())
+	}
+	return nil
+}
+
+// UsernameOccupied checks if the given username is occupied by another user or a channel
+func (repo *UserRepository) UsernameOccupied(username string) (bool, error) {	var occupied bool
+	err := repo.db.QueryRow(`
+				SELECT EXISTS(
+               SELECT username
+               FROM ((select username from users)
+                   UNION
+                   (select username from channels)
+                        ) as R
+               WHERE username = $1)`, username).Scan(&occupied)
+	if err != nil {
+		return true, fmt.Errorf("unable to check if email occupied")
+	}
+	return occupied, nil
+}
+
+// EmailOccupied checks if the given email is occupied by another user
+func (repo *UserRepository) EmailOccupied(email string) (bool, error) {
+	var occupied bool
+	err := repo.db.QueryRow(`SELECT EXISTS(SELECT username FROM "issue#1".users
+									WHERE email = $1)`, email).Scan(&occupied)
+	if err != nil {
+		return true, fmt.Errorf("unable to check if email occupied")
+	}
+	return occupied, nil
 }

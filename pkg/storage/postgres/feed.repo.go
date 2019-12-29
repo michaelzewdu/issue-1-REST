@@ -9,8 +9,9 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 )
 
-// UserRepository ...
-type UserRepository repository
+
+// FeedRepository ...
+type FeedRepository repository
 
 // NewFeedRepository returns a new in PostgreSQL implementation of user.Repository.
 // the databse connection must be passed as the first argument
