@@ -309,7 +309,8 @@ func (repo *UserRepository) DeleteBookmark(username string, postID int) error {
 }
 
 // UsernameOccupied checks if the given username is occupied by another user or a channel
-func (repo *UserRepository) UsernameOccupied(username string) (bool, error) {	var occupied bool
+func (repo *UserRepository) UsernameOccupied(username string) (bool, error) {
+	var occupied bool
 	err := repo.db.QueryRow(`
 				SELECT EXISTS(
                SELECT username

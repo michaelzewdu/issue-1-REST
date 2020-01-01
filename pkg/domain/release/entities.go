@@ -4,20 +4,20 @@ import "time"
 
 // Release represents an atomic work of creativity.
 type Release struct {
-	ID            int
-	OwnerUsername string
-	Metadata      Metadata
-	ContentType   string
-	Content       ContentGetter
-	CreationTime  time.Time
+	ID           int    `json:"id"`
+	OwnerChannel string `json:"ownerChannel"`
+	Type         Type   `json:"type"`
+	Content      string `json:"content"`
+	Metadata     `json:"metadata,omitempty"`
+	CreationTime time.Time `json:"creationTime,omitempty"`
 }
 
-// ContentGetter is an interface that allows us to get the content as a byte slice.
-// Allows to abstract away the difference storage methods for text (db)
-// and image (file) releases.
-type ContentGetter interface {
-	getContent() []byte
-}
+type Type string
+
+const (
+	Image Type = "image"
+	Text  Type = "text"
+)
 
 // Metadata is a value object holds all the metadata of releases.
 // genreDefining is the genre classification that defines the release most.
@@ -25,7 +25,10 @@ type ContentGetter interface {
 // or plain names otherwise.
 // description is for data like blurb.
 type Metadata struct {
-	genreDefining string
-	authors       []string
-	description   string
+	Title         string   `json:"title"`
+	GenreDefining string   `json:"genreDefining,omitempty"`
+	Description   string   `json:"description,omitempty"`
+	Authors       []string `json:"authors"`
+	Genres        []string `json:"genres"`
+	//Cover         string   `json:"cover"`
 }

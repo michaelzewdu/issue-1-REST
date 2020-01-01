@@ -9,7 +9,6 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 )
 
-
 // FeedRepository ...
 type FeedRepository repository
 
@@ -209,7 +208,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 				) AS PS (post_id, total_star_count)
 			ORDER BY creation_time DESC, total_star_count DESC
 		) AS F
-		LIMIT 2 OFFSET 3`, f.ID, limit, offset)
+		LIMIT $2 OFFSET $3`, f.ID, limit, offset)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for feed_subscriptions failed because of: %s", err.Error())

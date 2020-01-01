@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -49,29 +50,34 @@ func (logger *logger) Log(format string, a ...interface{}) {
 }
 
 func main() {
-	var logger rest.Logger = &logger{}
+	setup := rest.Enviroment{}
+	setup.Logger = &logger{}
 
-	const(
-		host = "localhost"
-		port = "5432"
-		dbname = "issue#1_db"
-		role = "issue#1_dev"
-		password = "password1234!@#$"
-	)
-	dataSourceName := fmt.Sprintf(
-		`host=%s port=%s dbname='%s' user='%s' password='%s' sslmode=disable`,
-		host, port, dbname, role, password)
-	db, err := sql.Open(
-		"postgres", dataSourceName)
-	if err != nil {
-		logger.Log("database connection failed because: %s", err.Error())
-		return
-	}
-	defer db.Close()
+	//logger := log.New(os.Stdout, "",log.Ltime)
+	var db *sql.DB
+	{
+		const (
+			host     = "localhost"
+			port     = "5432"
+			dbname   = "issue#1_db"
+			role     = "issue#1_dev"
+			password = "password1234!@#$"
+		)
+		dataSourceName := fmt.Sprintf(
+			`host=%s port=%s dbname='%s' user='%s' password='%s' sslmode=disable`,
+			host, port, dbname, role, password)
+		db, err := sql.Open(
+			"postgres", dataSourceName)
+		if err != nil {
+			setup.Logger.Log("database connection failed because: %s", err.Error())
+			return
+		}
+		defer db.Close()
 
-	if err = db.Ping(); err != nil {
-		logger.Log("database ping failed because: %s", err.Error())
-		return
+		if err = db.Ping(); err != nil {
+			setup.Logger.Log("database ping failed because: %s", err.Error())
+			return
+		}
 	}
 
 	services := make(map[string]interface{})
@@ -83,32 +89,26 @@ func main() {
 		dbRepos["User"] = &usrDBRepo
 		var usrCacheRepo user.Repository = memory.NewUserRepository(&usrDBRepo, &cacheRepos)
 		cacheRepos["User"] = &usrCacheRepo
-		var usrService user.Service = user.NewService(&usrCacheRepo, &services)
-		services["User"] = &usrService
+		setup.UserService = user.NewService(&usrCacheRepo, &services)
+		services["User"] = &setup.UserService
 	}
 	{
 		var feedDBRepo feed.Repository = postgres.NewFeedRepository(db, &dbRepos)
 		dbRepos["Feed"] = &feedDBRepo
 		var feedCacheRepo feed.Repository = memory.NewFeedRepository(&feedDBRepo, &cacheRepos)
 		cacheRepos["Feed"] = &feedCacheRepo
-		feedService := feed.NewService(&feedCacheRepo, &services)
-		services["Feed"] = &feedService
+		setup.FeedService = feed.NewService(&feedCacheRepo, &services)
+		services["Feed"] = &setup.FeedService
 	}
-	/*
-		{
-			var chnlDBRepo channel.Repository = postgres.NewChannelRepository(db, &dbRepos)
-			dbRepos["Channel"] = &chnlDBRepo
-			var chnlCacheRepo channel.Repository = memory.NewChannelRepository(&chnlDBRepo, &cacheRepos)
-			cacheRepos["Channel"] = &chnlCacheRepo
-			var chnlService channel.Service = channel.NewService(&chnlCacheRepo, &services)
-			services["Channel"] = &chnlService
-		}
-	*/
-	mux := rest.NewMux(&logger, &services)
-	logger.Log("starting up server...")
-	err = http.ListenAndServe(":8080", mux)
-	if err != nil {
-		logger.Log("http server failed to start")
-		return
-	}
+
+	setup.ImageServingRoute = "/images/"
+	setup.ImageStoragePath = "/data/images/"
+	setup.Port = "8080"
+	setup.HostAddress = "http://localhost"
+
+	setup.HostAddress += ":" + setup.Port
+
+	mux := rest.NewMux(&setup)
+	setup.Logger.Log("starting up server...")
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
