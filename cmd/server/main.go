@@ -3,14 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
+	"github.com/slim-crown/issue-1-REST/pkg/http/rest"
 	"log"
 	"net/http"
 	"time"
-
-	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
-
-	"github.com/slim-crown/issue-1-REST/pkg/http/rest"
 
 	"github.com/slim-crown/issue-1-REST/pkg/storage/memory"
 	"github.com/slim-crown/issue-1-REST/pkg/storage/postgres"
@@ -46,7 +45,11 @@ type logger struct{}
 
 // Log ...
 func (logger *logger) Log(format string, a ...interface{}) {
-	fmt.Printf("\n[%s] "+format, time.Now(), a)
+	if a != nil {
+		fmt.Printf(fmt.Sprintf("[%s] %s\n", time.Now().Format(time.StampMilli),format), a)
+	}else{
+		fmt.Printf("[%s] %s\n", time.Now().Format(time.StampMilli),format)
+	}
 }
 
 func main() {
@@ -56,6 +59,7 @@ func main() {
 	//logger := log.New(os.Stdout, "",log.Ltime)
 	var db *sql.DB
 	{
+		var err error
 		const (
 			host     = "localhost"
 			port     = "5432"
@@ -66,7 +70,7 @@ func main() {
 		dataSourceName := fmt.Sprintf(
 			`host=%s port=%s dbname='%s' user='%s' password='%s' sslmode=disable`,
 			host, port, dbname, role, password)
-		db, err := sql.Open(
+		db, err = sql.Open(
 			"postgres", dataSourceName)
 		if err != nil {
 			setup.Logger.Log("database connection failed because: %s", err.Error())
@@ -100,9 +104,17 @@ func main() {
 		setup.FeedService = feed.NewService(&feedCacheRepo, &services)
 		services["Feed"] = &setup.FeedService
 	}
+	{
+		var releaseDBRepo = postgres.NewReleaseRepository(db, &dbRepos)
+		dbRepos["Release"] = &releaseDBRepo
+		var releaseCacheRepo = memory.NewReleaseRepository(&releaseDBRepo)
+		cacheRepos["Release"] = &releaseCacheRepo
+		setup.ReleaseService = release.NewService(&releaseCacheRepo)
+		services["Release"] = &setup.ReleaseService
+	}
 
 	setup.ImageServingRoute = "/images/"
-	setup.ImageStoragePath = "/data/images/"
+	setup.ImageStoragePath = "data/images/"
 	setup.Port = "8080"
 	setup.HostAddress = "http://localhost"
 

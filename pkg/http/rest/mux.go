@@ -2,12 +2,19 @@ package rest
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"os"
+
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
+	uuid "github.com/satori/go.uuid"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
-	"net/http"
 )
 
 // Logger ...
@@ -15,30 +22,33 @@ type Logger interface {
 	Log(format string, a ...interface{})
 }
 
+// Enviroment is used to inject dependencies and other required data used by the handlers.
 type Enviroment struct {
 	Config
 	Dependencies
 }
 
+// Dependencies contains dependecies used by the handlers.
 type Dependencies struct {
 	UserService    user.Service
 	FeedService    feed.Service
 	ReleaseService release.Service
 	Logger         Logger
 }
+
+// Config contains the different settings used to set up the handlres
 type Config struct {
 	ImageServingRoute, ImageStoragePath, HostAddress, Port string
 }
 
-// NewMux ...
+// NewMux returns a new multiplexer with all the used setup.
 func NewMux(setup *Enviroment) *mux.Router {
 
 	mainRouter := mux.NewRouter().StrictSlash(true)
 	secureRouter := mainRouter.NewRoute().Subrouter()
 
 	mainRouter.PathPrefix(setup.ImageServingRoute).Handler(
-		http.StripPrefix(setup.ImageServingRoute, http.FileServer(http.Dir(setup.ImageStoragePath))),
-	)
+		http.StripPrefix(setup.ImageServingRoute, http.FileServer(http.Dir(setup.ImageStoragePath))))
 
 	attachUserRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, setup)
@@ -84,8 +94,13 @@ func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *E
 }
 
 type jSendResponse struct {
-	Status string      `json:"status"`
-	Data   interface{} `json:"data"`
+	Status  string      `json:"status"`
+	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message,omitempty"`
+}
+type jSendFailData struct {
+	ErrorReason  string `json:"errorReason"`
+	ErrorMessage string `json:"errorMessage"`
 }
 
 // writeResponseToWriter is a helper function.
@@ -98,4 +113,70 @@ func writeResponseToWriter(response jSendResponse, w http.ResponseWriter, status
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+}
+
+var errUnacceptedType = fmt.Errorf("file mime type not accepted")
+var errReadingFromImage = fmt.Errorf("file mime type not accepted")
+
+func saveImageFromRequest(r *http.Request, fileName string) (*os.File, string, error) {
+	file, header, err := r.FormFile(fileName)
+	if err != nil {
+		return nil, "", errReadingFromImage
+	}
+	defer file.Close()
+	err = checkIfFileIsAcceptedType(file)
+	if err != nil {
+		return nil, "", err
+	}
+	newFile, err := ioutil.TempFile("", "tempIMG*.jpg")
+	if err != nil {
+		return nil, "", err
+	}
+	_, err = io.Copy(newFile, file)
+	if err != nil {
+		return nil, "", err
+	}
+	return newFile, header.Filename, nil
+}
+
+func generateFileNameForStorage(fileName, prefix string) string {
+	v4uuid, _ := uuid.NewV4()
+	return prefix + "." + v4uuid.String() + "." + fileName
+}
+
+func checkIfFileIsAcceptedType(file multipart.File) error { // this block checks if image is of accepted types
+	acceptedTypes := map[string]struct{}{
+		"image/jpeg": {},
+		"image/png":  {},
+	}
+	tempBuffer := make([]byte, 512)
+	_, err := file.ReadAt(tempBuffer, 0)
+	if err != nil {
+		return errReadingFromImage
+	}
+	contentType := http.DetectContentType(tempBuffer)
+	if _, ok := acceptedTypes[contentType]; !ok {
+		return errUnacceptedType
+	}
+	return err
+}
+
+func saveTempFilePermanentlyToPath(tmpFile *os.File, path string) error {
+	newFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer newFile.Close()
+
+	_, err = tmpFile.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(newFile, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
