@@ -1,6 +1,6 @@
 /*
 Package postgres contains implementations of business level objects
-all contained in a single package to help with circular dependecies */
+all contained in a single package to help with circular dependencies */
 package postgres
 
 import (
@@ -10,7 +10,7 @@ import (
 /*
 //DBHandler ...
 type DBHandler interface {
-	Execute(statment string) error
+	Execute(statement string) error
 	Query(query string) Row
 }
 
@@ -25,12 +25,3 @@ type repository struct {
 	db       *sql.DB
 	allRepos *map[string]interface{}
 }
-
-// ChannelRepository ...
-type ChannelRepository repository
-
-// CommentRepository ...
-type CommentRepository repository
-
-// ReleaseRepository ...
-type ReleaseRepository repository
