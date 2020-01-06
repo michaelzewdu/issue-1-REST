@@ -9,7 +9,7 @@ const (
 	// Image type releases include webcomics, art, memes...etc
 	Image Type = "image"
 	// Text type releases include web-series, essays, blogs, anecdote...etc
-	Text  Type = "text"
+	Text Type = "text"
 )
 
 // Release represents an atomic work of creativity.
@@ -36,7 +36,7 @@ type Metadata struct {
 	//Cover         string   `json:"cover"`
 }
 
-// Other is a struct used to contain metadata not neccessarily present in all releases
+// Other is a struct used to contain metadata not necessarily present in all releases
 type Other struct {
 	Authors []string `json:"authors,omitempty"`
 	Genres  []string `json:"genres,omitempty"`

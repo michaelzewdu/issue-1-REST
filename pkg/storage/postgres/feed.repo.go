@@ -3,24 +3,22 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"time"
-
 	"github.com/lib/pq"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 )
 
-// FeedRepository ...
-type FeedRepository repository
+// feedRepository ...
+type feedRepository repository
 
 // NewFeedRepository returns a new in PostgreSQL implementation of user.Repository.
-// the databse connection must be passed as the first argument
+// the database connection must be passed as the first argument
 // since for the repo to work.
-func NewFeedRepository(db *sql.DB, allRepos *map[string]interface{}) *FeedRepository {
-	return &FeedRepository{db: db, allRepos: allRepos}
+func NewFeedRepository(db *sql.DB, allRepos *map[string]interface{}) feed.Repository {
+	return &feedRepository{db: db, allRepos: allRepos}
 }
 
 // AddFeed persists a feed entity to the DB according to the feed.Feed struct passed in.
-func (repo *FeedRepository) AddFeed(f *feed.Feed) error {
+func (repo *feedRepository) AddFeed(f *feed.Feed) error {
 	var err error
 	var sorting string
 	switch f.Sorting {
@@ -53,7 +51,7 @@ func (repo *FeedRepository) AddFeed(f *feed.Feed) error {
 
 // GetFeed retrieve the feed entity in the database belonging to the user of the passed
 // in username.
-func (repo *FeedRepository) GetFeed(username string) (*feed.Feed, error) {
+func (repo *feedRepository) GetFeed(username string) (*feed.Feed, error) {
 	var err error
 	f := feed.Feed{OwnerUsername: username}
 	var sorting string
@@ -75,12 +73,9 @@ func (repo *FeedRepository) GetFeed(username string) (*feed.Feed, error) {
 }
 
 // GetChannels retrieves the all the channels the given feed has subscribed to.
-func (repo *FeedRepository) GetChannels(f *feed.Feed, sortBy string, sortOrder string) ([]*feed.Channel, error) {
+func (repo *feedRepository) GetChannels(f *feed.Feed, sortBy string, sortOrder string) ([]*feed.Channel, error) {
 	// TODO test this method
 	channelSubscriptions := make([]*feed.Channel, 0)
-	var (
-		channelname, name, subTimeString string
-	)
 	rows, err := repo.db.Query(fmt.Sprintf(`
 		SELECT username, name, subscription_time
 		FROM (
@@ -99,16 +94,12 @@ func (repo *FeedRepository) GetChannels(f *feed.Feed, sortBy string, sortOrder s
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&channelname, &name, &subTimeString)
+		c := new(feed.Channel)
+		err := rows.Scan(&c.Channelname, &c.Name, &c.SubscriptionTime)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %s", err.Error())
 		}
-		subTime, err := time.Parse(time.RFC3339, subTimeString)
-		channelSubscriptions = append(channelSubscriptions, &feed.Channel{
-			Username:         channelname,
-			Name:             name,
-			SubscriptionTime: subTime,
-		})
+		channelSubscriptions = append(channelSubscriptions, c)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -120,7 +111,7 @@ func (repo *FeedRepository) GetChannels(f *feed.Feed, sortBy string, sortOrder s
 // GetPosts returns a list of posts collected from the channels
 // the given feed has subscribed to sorted according to the given
 // method.
-func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, offset int) ([]*feed.Post, error) {
+func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, offset int) ([]*feed.Post, error) {
 	var err error
 
 	var rows *sql.Rows
@@ -128,7 +119,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 	// TODO test queries with actual posts
 	case feed.SortNew:
 		rows, err = repo.db.Query(`
-		SELECT *
+		SELECT id
 		FROM	(SELECT id, creation_time
 				FROM posts
 				NATURAL JOIN
@@ -148,7 +139,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 	case feed.SortHot:
 		rows, err = repo.db.Query(`
 		SELECT post_id
-		FROM(SELECT *
+		FROM(SELECT LP.post_id, comment_count
 			FROM(SELECT *
 				FROM (SELECT id, creation_time
 						FROM posts
@@ -167,11 +158,11 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 						) AS P
 				ORDER BY creation_time DESC NULLS LAST
 				) AS LP (post_id)
-				NATURAL JOIN
-				(SELECT post_id,COUNT(*)
+				LEFT JOIN
+				(SELECT post_id, COALESCE(COUNT(*), 0)
 				 FROM comments
 				 GROUP BY post_id
-				) AS PS (post_id, comment_count)
+				) AS PS (post_id, comment_count) ON LP.post_id = PS.post_id
 			ORDER BY creation_time DESC, comment_count DESC
 		) AS F
 		LIMIT $2 OFFSET $3`, f.ID, limit, offset)
@@ -182,7 +173,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 	default:
 		rows, err = repo.db.Query(`
 		SELECT post_id
-		FROM(SELECT *
+		FROM(SELECT Lp.post_id, total_star_count
 			FROM(SELECT *
 				FROM (SELECT id, creation_time
 						FROM posts
@@ -192,7 +183,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 								(
 								SELECT channel_username
 								FROM feed_subscriptions
-								WHERE feed_id = 1
+								WHERE feed_id = $1
 								) AS S (username)
 								NATURAL JOIN
 								channels
@@ -201,11 +192,11 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 						) AS P
 				ORDER BY creation_time DESC NULLS LAST
 				) AS LP (post_id)
-				NATURAL JOIN
+				LEFT JOIN
 				(SELECT post_id,SUM(star_count)
 				 FROM post_stars
 				 GROUP BY post_id
-				) AS PS (post_id, total_star_count)
+				) AS PS (post_id, total_star_count) ON LP.post_id = PS.post_id
 			ORDER BY creation_time DESC, total_star_count DESC
 		) AS F
 		LIMIT $2 OFFSET $3`, f.ID, limit, offset)
@@ -234,7 +225,7 @@ func (repo *FeedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 }
 
 // UpdateFeed updates the feed entity under the given id based on the passed in feed.Feed struct.
-func (repo *FeedRepository) UpdateFeed(id uint, f *feed.Feed) error {
+func (repo *feedRepository) UpdateFeed(id uint, f *feed.Feed) error {
 	var err error
 	var sorting string
 	switch f.Sorting {
@@ -257,7 +248,7 @@ func (repo *FeedRepository) UpdateFeed(id uint, f *feed.Feed) error {
 }
 
 // execUpdateStatementOnColumn is just a helper function
-func (repo *FeedRepository) execUpdateStatementOnColumn(column, value string, id uint) error {
+func (repo *feedRepository) execUpdateStatementOnColumn(column, value string, id uint) error {
 	_, err := repo.db.Exec(fmt.Sprintf(`
 			UPDATE feeds 
 			SET %s = $1 
@@ -269,7 +260,7 @@ func (repo *FeedRepository) execUpdateStatementOnColumn(column, value string, id
 }
 
 // Subscribe adds the given channel to the list of channels that the feed collects posts from.
-func (repo *FeedRepository) Subscribe(f *feed.Feed, channelname string) error {
+func (repo *feedRepository) Subscribe(f *feed.Feed, channelname string) error {
 	_, err := repo.db.Exec(`
 		INSERT INTO feed_subscriptions (feed_id,channel_username)
 		VALUES ($1, $2)`, f.ID, channelname)
@@ -286,7 +277,7 @@ func (repo *FeedRepository) Subscribe(f *feed.Feed, channelname string) error {
 }
 
 // Unsubscribe removes the channel to the list of channels that the feed collects posts from.
-func (repo *FeedRepository) Unsubscribe(f *feed.Feed, channelname string) error {
+func (repo *feedRepository) Unsubscribe(f *feed.Feed, channelname string) error {
 	_, err := repo.db.Exec(`
 		DELETE FROM feed_subscriptions
 		WHERE feed_id = $1 AND channel_username = $2`, f.ID, channelname)

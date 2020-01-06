@@ -99,9 +99,9 @@ func main() {
 		services["User"] = &setup.UserService
 	}
 	{
-		var feedDBRepo feed.Repository = postgres.NewFeedRepository(db, &dbRepos)
+		var feedDBRepo = postgres.NewFeedRepository(db, &dbRepos)
 		dbRepos["Feed"] = &feedDBRepo
-		var feedCacheRepo feed.Repository = memory.NewFeedRepository(&feedDBRepo, &cacheRepos)
+		var feedCacheRepo = memory.NewFeedRepository(&feedDBRepo, &cacheRepos)
 		cacheRepos["Feed"] = &feedCacheRepo
 		setup.FeedService = feed.NewService(&feedCacheRepo, &services)
 		services["Feed"] = &setup.FeedService
