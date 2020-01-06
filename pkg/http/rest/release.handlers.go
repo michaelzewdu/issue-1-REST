@@ -14,7 +14,7 @@ import (
 )
 
 // postReleases returns a handler for POST /releases requests
-func postReleases(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
+func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -133,7 +133,7 @@ func postReleases(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // getRelease returns a handler for GET /releases/{id} requests
-func getRelease(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
+func getRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -189,7 +189,7 @@ func getRelease(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // getReleases returns a handler for GET /releases?sort=new&limit=5&offset=0&pattern=Joe requests
-func getReleases(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
+func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -275,7 +275,7 @@ func getReleases(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // putRelease returns a handler for PUT /releases/{id} requests
-func putRelease(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
+func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -422,7 +422,7 @@ func putRelease(d *Enviroment) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteRelease returns a handler for DELETE /releases/{id} requests
-func deleteRelease(s *Enviroment) func(w http.ResponseWriter, r *http.Request) {
+func deleteRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"

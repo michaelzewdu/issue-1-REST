@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/microcosm-cc/bluemonday"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -22,27 +23,29 @@ type Logger interface {
 	Log(format string, a ...interface{})
 }
 
-// Enviroment is used to inject dependencies and other required data used by the handlers.
-type Enviroment struct {
+// Setup is used to inject dependencies and other required data used by the handlers.
+type Setup struct {
 	Config
 	Dependencies
 }
 
-// Dependencies contains dependecies used by the handlers.
+// Dependencies contains dependencies used by the handlers.
 type Dependencies struct {
-	UserService    user.Service
-	FeedService    feed.Service
-	ReleaseService release.Service
-	Logger         Logger
+	StrictSanitizer *bluemonday.Policy
+	MarkupSanitizer *bluemonday.Policy
+	UserService     user.Service
+	FeedService     feed.Service
+	ReleaseService  release.Service
+	Logger          Logger
 }
 
-// Config contains the different settings used to set up the handlres
+// Config contains the different settings used to set up the handlers
 type Config struct {
 	ImageServingRoute, ImageStoragePath, HostAddress, Port string
 }
 
 // NewMux returns a new multiplexer with all the used setup.
-func NewMux(setup *Enviroment) *mux.Router {
+func NewMux(setup *Setup) *mux.Router {
 
 	mainRouter := mux.NewRouter().StrictSlash(true)
 	secureRouter := mainRouter.NewRoute().Subrouter()
@@ -50,7 +53,7 @@ func NewMux(setup *Enviroment) *mux.Router {
 	mainRouter.PathPrefix(setup.ImageServingRoute).Handler(
 		http.StripPrefix(setup.ImageServingRoute, http.FileServer(http.Dir(setup.ImageStoragePath))))
 
-	attachUserRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
+	attachUserRoutesToRouters(mainRouter, secureRouter, setup)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, setup)
 
 	feedService := &setup.FeedService
@@ -71,20 +74,23 @@ func NewMux(setup *Enviroment) *mux.Router {
 	return mainRouter
 }
 
-func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment, logger *Logger) {
-	mainRouter.HandleFunc("/users", getUsers(&setup.UserService, logger)).Methods("GET")
-	mainRouter.HandleFunc("/users", postUser(&setup.UserService, logger)).Methods("POST")
+func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/users", getUsers(setup)).Methods("GET")
+	mainRouter.HandleFunc("/users", postUser(setup)).Methods("POST")
 	//TODO secure these routes
-	secureRouter.HandleFunc("/users/{username}", getUser(&setup.UserService, logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}", putUser(&setup.UserService, logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}", deleteUser(&setup.UserService, logger)).Methods("DELETE")
-	secureRouter.HandleFunc("/users/{username}/bookmarks", getUserBookmarks(&setup.UserService, logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", putUserBookmarks(&setup.UserService, logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", deleteUserBookmarks(&setup.UserService, logger)).Methods("DELETE")
-	secureRouter.HandleFunc("/users/{username}/bookmarks", postUserBookmarks(&setup.UserService, logger)).Methods("POST")
+	secureRouter.HandleFunc("/users/{username}", getUser(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}", putUser(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}", deleteUser(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/users/{username}/bookmarks", getUserBookmarks(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", putUserBookmarks(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", deleteUserBookmarks(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/users/{username}/bookmarks", postUserBookmarks(setup)).Methods("POST")
+	secureRouter.HandleFunc("/users/{username}/picture", getUserPicture(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/picture", putUserPicture(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/picture", deleteUserPicture(setup)).Methods("DELETE")
 }
 
-func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment) {
+func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/releases", getReleases(setup)).Methods("GET")
 	mainRouter.HandleFunc("/releases", postReleases(setup)).Methods("POST")
 	//TODO secure these routes

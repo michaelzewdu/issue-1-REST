@@ -3,12 +3,14 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 	"github.com/slim-crown/issue-1-REST/pkg/http/rest"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/slim-crown/issue-1-REST/pkg/storage/memory"
@@ -46,14 +48,14 @@ type logger struct{}
 // Log ...
 func (logger *logger) Log(format string, a ...interface{}) {
 	if a != nil {
-		fmt.Printf(fmt.Sprintf("[%s] %s\n", time.Now().Format(time.StampMilli),format), a)
-	}else{
-		fmt.Printf("[%s] %s\n", time.Now().Format(time.StampMilli),format)
+		fmt.Printf(fmt.Sprintf("[%s] %s\n", time.Now().Format(time.StampMilli), format), a)
+	} else {
+		fmt.Printf("[%s] %s\n", time.Now().Format(time.StampMilli), format)
 	}
 }
 
 func main() {
-	setup := rest.Enviroment{}
+	setup := rest.Setup{}
 	setup.Logger = &logger{}
 
 	//logger := log.New(os.Stdout, "",log.Ltime)
@@ -89,9 +91,9 @@ func main() {
 	dbRepos := make(map[string]interface{})
 
 	{
-		var usrDBRepo user.Repository = postgres.NewUserRepository(db, &dbRepos)
+		var usrDBRepo = postgres.NewUserRepository(db, &dbRepos)
 		dbRepos["User"] = &usrDBRepo
-		var usrCacheRepo user.Repository = memory.NewUserRepository(&usrDBRepo, &cacheRepos)
+		var usrCacheRepo = memory.NewUserRepository(&usrDBRepo, &cacheRepos)
 		cacheRepos["User"] = &usrCacheRepo
 		setup.UserService = user.NewService(&usrCacheRepo, &services)
 		services["User"] = &setup.UserService
@@ -119,6 +121,10 @@ func main() {
 	setup.HostAddress = "http://localhost"
 
 	setup.HostAddress += ":" + setup.Port
+
+	setup.StrictSanitizer = bluemonday.StrictPolicy()
+	setup.MarkupSanitizer = bluemonday.UGCPolicy()
+	setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
 
 	mux := rest.NewMux(&setup)
 	setup.Logger.Log("starting up server...")

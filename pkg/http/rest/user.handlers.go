@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,102 +15,113 @@ import (
 	"github.com/gorilla/mux"
 )
 
+func sanitizeUser(u *user.User, s *Setup) {
+	u.Username = s.StrictSanitizer.Sanitize(u.Username)
+	// TODO validate email
+	u.FirstName = s.StrictSanitizer.Sanitize(u.FirstName)
+	u.MiddleName = s.StrictSanitizer.Sanitize(u.MiddleName)
+	u.LastName = s.StrictSanitizer.Sanitize(u.LastName)
+	u.Bio = s.StrictSanitizer.Sanitize(u.Bio)
+}
+
 // postUser returns a handler for POST /users requests
-func postUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func postUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		u := user.User{}
+		u := new(user.User)
 
 		{ // checks if requests uses forms or JSON and parses then
 			u.Username = r.FormValue("username")
 			if u.Username != "" {
-				u.Password = r.FormValue("passHash")
+				u.Password = r.FormValue("password")
 				u.Email = r.FormValue("email")
 				u.FirstName = r.FormValue("firstName")
 				u.MiddleName = r.FormValue("middleName")
 				u.LastName = r.FormValue("lastName")
 			} else {
-				err := json.NewDecoder(r.Body).Decode(&u)
+				err := json.NewDecoder(r.Body).Decode(u)
 				if err != nil {
-					var responseData struct {
-						Data string `json:"message"`
-					}
-					responseData.Data = `bad request, use format
-				{"username":"username",
+					response.Data = jSendFailData{
+						ErrorReason: "request format",
+						ErrorMessage: `bad request, use format
+				{"username":"username len 5-22 chars",
 				"passHash":"passHash",
 				"email":"email",
 				"firstName":"firstName",
 				"middleName":"middleName",
-				"lastName":"lastName"}`
-					response.Data = responseData
-					(*logger).Log("bad update user request")
+				"lastName":"lastName"}`,
+					}
+					s.Logger.Log("bad update user request")
 					statusCode = http.StatusBadRequest
 				}
 			}
 		}
+
+		sanitizeUser(u, s)
+
 		if response.Data == nil {
 			// this block checks for required fields
-			if u.Username == "" {
-				var responseData struct {
-					Data string `json:"username"`
+			if u.FirstName == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "firstName",
+					ErrorMessage: "firstName is required",
 				}
-				responseData.Data = "username is required"
-				response.Data = responseData
 			}
 			if u.Password == "" {
-				var responseData struct {
-					Data string `json:"passHash"`
+				response.Data = jSendFailData{
+					ErrorReason:  "password",
+					ErrorMessage: "password is required",
 				}
-				responseData.Data = "passHash is required"
-				response.Data = responseData
 			}
-			if u.FirstName == "" {
-				var responseData struct {
-					Data string `json:"firstName"`
+			if u.Username == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: "username is required",
 				}
-				responseData.Data = "firstName is required"
-				response.Data = responseData
+			} else {
+				if len(u.Username) > 22 || len(u.Username) < 5 {
+					response.Data = jSendFailData{
+						ErrorReason:  "username",
+						ErrorMessage: "username length shouldn't be shorter that 5 and longer than 22 chars",
+					}
+				}
 			}
 			if response.Data == nil {
-				(*logger).Log("trying to add user %s", u.Username, u.Email, u.FirstName, u.MiddleName, u.LastName, u.Password)
-				// TODO u name is occupied error
-				// TODO email occupied
-				err := (*service).AddUser(&u)
+				s.Logger.Log("trying to add user %s", u.Username, u.Email, u.FirstName, u.MiddleName, u.LastName, u.Password)
+				u, err := s.UserService.AddUser(u)
 				switch err {
 				case nil:
 					response.Status = "success"
-					(*logger).Log("success adding user %s", u.Username, u.Email, u.FirstName, u.MiddleName, u.LastName, u.Password)
+					response.Data = *u
+					s.Logger.Log("success adding user %s", u.Username, u.Email, u.FirstName, u.MiddleName, u.LastName, u.Password)
 				case user.ErrUserNameOccupied:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"username"`
+					s.Logger.Log("adding of user failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "username",
+						ErrorMessage: "username is occupied",
 					}
-					responseData.Data = "username is occupied"
-					response.Data = responseData
 					statusCode = http.StatusConflict
 				case user.ErrEmailIsOccupied:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"email"`
+					s.Logger.Log("adding of user failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "email",
+						ErrorMessage: "email is occupied",
 					}
-					responseData.Data = "email is occupied"
-					response.Data = responseData
 					statusCode = http.StatusConflict
+				case user.ErrSomeUserDataNotPersisted:
+					fallthrough
 				default:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
-					}
+					_ = s.UserService.DeleteUser(u.Username)
+					s.Logger.Log("adding of user failed because: %v", err)
 					response.Status = "error"
-					responseData.Data = "server error when adding user"
-					response.Data = responseData
+					response.Message = "server error when adding user"
 					statusCode = http.StatusInternalServerError
 				}
 			} else {
 				// if required fields aren't present
-				(*logger).Log("bad adding user request")
+				s.Logger.Log("bad adding user request")
 				statusCode = http.StatusBadRequest
 			}
 		}
@@ -117,7 +130,7 @@ func postUser(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 }
 
 // getUser returns a handler for GET /users/{username} requests
-func getUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func getUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -125,37 +138,35 @@ func getUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 		vars := mux.Vars(r)
 		username := vars["username"]
 
-		(*logger).Log("trying to fetch user %s", username)
+		s.Logger.Log("trying to fetch user %s", username)
 
-		u, err := (*service).GetUser(username)
+		u, err := s.UserService.GetUser(username)
 		switch err {
 		case nil:
 			response.Status = "success"
 			{ // this block sanitizes the returned User if it's not the user herself accessing the route
 				if username != r.Header.Get("authorized_username") {
-					(*logger).Log(fmt.Sprintf("user %s fetched user %s", r.Header.Get("authorized_username"), u.Username))
+					s.Logger.Log(fmt.Sprintf("user %s fetched user %s", r.Header.Get("authorized_username"), u.Username))
 					u.Email = ""
 					u.BookmarkedPosts = make(map[int]time.Time)
 				}
 			}
-			response.Data = *u
-			(*logger).Log("success fetching user %s", username)
-		case user.ErrUserNotFound:
-			(*logger).Log("fetch attempt of non existing user %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			if u.PictureURL != "" {
+				u.PictureURL = s.HostAddress + s.ImageServingRoute + url.PathEscape(u.PictureURL)
 			}
-			responseData.Data = fmt.Sprintf("user of username %s not found", username)
-			response.Data = responseData
+			response.Data = *u
+			s.Logger.Log("success fetching user %s", username)
+		case user.ErrUserNotFound:
+			s.Logger.Log("fetch attempt of non existing user %s", username)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("user of username %s not found", username),
+			}
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of user failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("fetching of user failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when fetching user"
-			response.Data = responseData
+			response.Message = "server error when fetching user"
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -163,7 +174,7 @@ func getUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 }
 
 // getUsers returns a handler for GET /users?sort=new&limit=5&offset=0&pattern=Joe requests
-func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func getUsers(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -182,24 +193,22 @@ func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
-					(*logger).Log("bad get users request, limit")
-					var responseData struct {
-						Data string `json:"limit"`
+					s.Logger.Log("bad get users request, limit")
+					response.Data = jSendFailData{
+						ErrorReason:  "limit",
+						ErrorMessage: "bad request, limit can't be negative",
 					}
-					responseData.Data = "bad request, limit can't be negative"
-					response.Data = responseData
 					statusCode = http.StatusBadRequest
 				}
 			}
 			if offsetRaw := r.URL.Query().Get("offset"); offsetRaw != "" {
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
-					(*logger).Log("bad request, offset")
-					var responseData struct {
-						Data string `json:"offset"`
+					s.Logger.Log("bad request, offset")
+					response.Data = jSendFailData{
+						ErrorReason:  "offset",
+						ErrorMessage: "bad request, offset can't be negative",
 					}
-					responseData.Data = "bad request, offset can't be negative"
-					response.Data = responseData
 					statusCode = http.StatusBadRequest
 				}
 			}
@@ -231,21 +240,23 @@ func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 		}
 		// if queries are clean
 		if response.Data == nil {
-			users, err := (*service).SearchUser(pattern, sortBy, sortOrder, limit, offset)
+			users, err := s.UserService.SearchUser(pattern, sortBy, sortOrder, limit, offset)
 			if err != nil {
-				(*logger).Log("fetching of users failed because: %s", err.Error())
-
-				var responseData struct {
-					Data string `json:"message"`
-				}
+				s.Logger.Log("fetching of users failed because: %v", err)
 				response.Status = "error"
-				responseData.Data = "server error when getting users"
-				response.Data = responseData
+				response.Message = "server error when getting users"
 				statusCode = http.StatusInternalServerError
 			} else {
 				response.Status = "success"
+				for _, u := range users {
+					u.Email = ""
+					u.BookmarkedPosts = make(map[int]time.Time)
+					if u.PictureURL != "" {
+						u.PictureURL = s.HostAddress + s.ImageServingRoute + url.PathEscape(u.PictureURL)
+					}
+				}
 				response.Data = users
-				(*logger).Log("success fetching users")
+				s.Logger.Log("success fetching users")
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -253,7 +264,7 @@ func getUsers(service *user.Service, logger *Logger) func(w http.ResponseWriter,
 }
 
 // postUser returns a handler for PUT /users/{username} requests
-func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -264,70 +275,75 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 
 		{ // this block blocks user updating of user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
-				if _, err := (*service).GetUser(username); err == nil {
-					(*logger).Log("unauthorized update user attempt")
+				if _, err := s.UserService.GetUser(username); err == nil {
+					s.Logger.Log("unauthorized update user attempt")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
 			}
 		}
-		var u user.User
-		err := json.NewDecoder(r.Body).Decode(&u)
+		u := new(user.User)
+		err := json.NewDecoder(r.Body).Decode(u)
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason: "request format",
+				ErrorMessage: `bad request, use format
+				{"username":"username len 5-22 chars",
+				"passHash":"passHash",
+				"email":"email",
+				"firstName":"firstName",
+				"middleName":"middleName",
+				"lastName":"lastName"}`,
 			}
-			responseData.Data = "bad request"
-			response.Data = responseData
-			(*logger).Log("bad update user request")
+			s.Logger.Log("bad update user request")
 			statusCode = http.StatusBadRequest
-		} else {
+		}
+		if response.Data == nil {
 			// if JSON parsing doesn't fail
+
+			sanitizeUser(u, s)
+
 			if u.FirstName == "" && u.Username == "" && u.Bio == "" && u.Email == "" && u.LastName == "" && u.MiddleName == "" && u.Password == "" {
-				var responseData struct {
-					Data string `json:"message"`
+				response.Data = jSendFailData{
+					ErrorReason:  "request",
+					ErrorMessage: "request doesn't contain updatable data",
 				}
-				responseData.Data = "bad request"
-				response.Data = responseData
 				statusCode = http.StatusBadRequest
 			} else {
-				err = (*service).UpdateUser(username, &u)
+				u, err = s.UserService.UpdateUser(u, username)
 				switch err {
 				case nil:
-					(*logger).Log("success put user %s", username, u.Username, u.Password, u.Email, u.FirstName, u.MiddleName, u.LastName)
+					s.Logger.Log("success put user %s", username, u.Username, u.Password, u.Email, u.FirstName, u.MiddleName, u.LastName)
 					response.Status = "success"
+					response.Data = *u
 				case user.ErrUserNameOccupied:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"username"`
+					s.Logger.Log("adding of user failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "username",
+						ErrorMessage: "username is occupied by a channel",
 					}
-					responseData.Data = "username is occupied by a channel"
-					response.Data = responseData
 					statusCode = http.StatusConflict
 				case user.ErrEmailIsOccupied:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"email"`
+					s.Logger.Log("adding of user failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "email",
+						ErrorMessage: "email is occupied",
 					}
-					responseData.Data = "email is occupied"
-					response.Data = responseData
 					statusCode = http.StatusConflict
 				case user.ErrInvalidUserData:
-					(*logger).Log("adding of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"data"`
+					s.Logger.Log("adding of user failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "request",
+						ErrorMessage: "user must have email & password to be created",
 					}
-					responseData.Data = "user must have email & password to be created"
-					response.Data = responseData
 					statusCode = http.StatusBadRequest
+				case user.ErrSomeUserDataNotPersisted:
+					fallthrough
 				default:
-					(*logger).Log("update of user failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
-					}
-					responseData.Data = "server error when updating user"
+					_ = s.UserService.DeleteUser(u.Username)
+					s.Logger.Log("update of user failed because: %v", err)
 					response.Status = "error"
-					response.Data = responseData
+					response.Message = "server error when updating user"
 					statusCode = http.StatusInternalServerError
 				}
 			}
@@ -337,7 +353,7 @@ func putUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, 
 }
 
 // deleteUser returns a handler for DELETE /users/{username} requests
-func deleteUser(service *user.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func deleteUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -347,31 +363,28 @@ func deleteUser(service *user.Service, logger *Logger) func(w http.ResponseWrite
 		username := vars["username"]
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
-				(*logger).Log("unauthorized update user attempt")
+				s.Logger.Log("unauthorized update user attempt")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
-		(*logger).Log("trying to delete user %s", username)
-		err := (*service).DeleteUser(username)
+		s.Logger.Log("trying to delete user %s", username)
+		err := s.UserService.DeleteUser(username)
 		if err != nil {
-			(*logger).Log("deletion of user failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"username"`
-			}
-			responseData.Data = fmt.Sprintf("username %s not found", username)
-			response.Data = responseData
-			statusCode = http.StatusNotFound
+			s.Logger.Log("deletion of user failed because: %v", err)
+			response.Status = "error"
+			response.Message = "server error when deleting user"
+			statusCode = http.StatusInternalServerError
 		} else {
 			response.Status = "success"
-			(*logger).Log("success deleting user %s", username)
+			s.Logger.Log("success deleting user %s", username)
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
-// getUserBookmarks returns a handler for GET /users/{username}/bookmarks/ requests
-func getUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseWriter, *http.Request) {
+// getUserBookmarks returns a handler for GET /users/{username}/bookmarks requests
+func getUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -381,33 +394,28 @@ func getUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseW
 		username := vars["username"]
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
-				(*logger).Log("unauthorized update user attempt")
+				s.Logger.Log("unauthorized get user bookmarks request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
-		u, err := (*service).GetUser(username)
+		u, err := s.UserService.GetUser(username)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = u.BookmarkedPosts
-			(*logger).Log("success fetching user %s", username)
+			s.Logger.Log("success fetching user %s", username)
 		case user.ErrUserNotFound:
-			(*logger).Log("fetch attempt of non existing user %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Log("fetch attempt of non existing user %s", username)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("user of username %s not found", username),
 			}
-			responseData.Data = fmt.Sprintf("user of username %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of user failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("fetching of user bookmarks failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when fetching user bookmarks"
-			response.Data = responseData
+			response.Message = "server error when fetching user bookmarks"
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -415,7 +423,7 @@ func getUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseW
 }
 
 // postUserBookmarks returns a handler for POST /users/{username}/bookmarks/ requests
-func postUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseWriter, *http.Request) {
+func postUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -425,7 +433,7 @@ func postUserBookmarks(service *user.Service, logger *Logger) func(http.Response
 		username := vars["username"]
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
-				(*logger).Log("unauthorized update user attempt")
+				s.Logger.Log("unauthorized post user bookmarks request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -438,60 +446,52 @@ func postUserBookmarks(service *user.Service, logger *Logger) func(http.Response
 			if temp != "" {
 				post.PostID, err = strconv.Atoi(temp)
 				if err != nil {
-					var responseData struct {
-						Data string `json:"message"`
+					s.Logger.Log("bad bookmark post request")
+					response.Data = jSendFailData{
+						ErrorReason:  "postID",
+						ErrorMessage: "bad request, postID must be an integer",
 					}
-					responseData.Data = `bad request, postID must be an integer`
-					response.Data = responseData
-					(*logger).Log("bad bookmark post request")
 					statusCode = http.StatusBadRequest
 				}
 			} else {
 				err := json.NewDecoder(r.Body).Decode(&post)
 				if err != nil {
-					var responseData struct {
-						Data string `json:"message"`
+					s.Logger.Log("bad bookmark post request")
+					response.Data = jSendFailData{
+						ErrorReason: "request format",
+						ErrorMessage: `bad request, use format
+										{"postID":"postID"}`,
 					}
-					responseData.Data = `bad request, use format
-										{"postID":"postID"}`
-					response.Data = responseData
-					(*logger).Log("bad bookmark post request")
 					statusCode = http.StatusBadRequest
 				}
 			}
 		}
 		// if queries are clean
-		(*logger).Log(fmt.Sprintf("bookmarking post: %v", post))
+		s.Logger.Log(fmt.Sprintf("bookmarking post: %v", post))
 		if response.Data == nil {
-			err := (*service).BookmarkPost(username, post.PostID)
+			err := s.UserService.BookmarkPost(username, post.PostID)
 			switch err {
 			case nil:
-				(*logger).Log(fmt.Sprintf("success adding bookmark %d to user %s", post.PostID, username))
+				s.Logger.Log(fmt.Sprintf("success adding bookmark %d to user %s", post.PostID, username))
 				response.Status = "success"
 			case user.ErrUserNotFound:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("user of username %s not found", username),
 				}
-				responseData.Data = "user doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			case user.ErrPostNotFound:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"postID"`
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("post of id %d not found", post.PostID),
 				}
-				responseData.Data = "post doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"message"`
-				}
-				responseData.Data = "server error when bookmarking post"
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
 				response.Status = "error"
-				response.Data = responseData
+				response.Message = "server error when bookmarking post"
 				statusCode = http.StatusInternalServerError
 			}
 		}
@@ -499,8 +499,8 @@ func postUserBookmarks(service *user.Service, logger *Logger) func(http.Response
 	}
 }
 
-// putUserBookmarks returns a handler for PUT /users/{username}/bookmarks/ requests
-func putUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseWriter, *http.Request) {
+// putUserBookmarks returns a handler for PUT /users/{username}/bookmarks/{postID} requests
+func putUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -508,54 +508,47 @@ func putUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseW
 		response.Status = "fail"
 		vars := mux.Vars(r)
 		username := vars["username"]
-		{ // this block blocks user deletion of a user if is not the user herself accessing the route
+		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				(*logger).Log("unauthorized update user attempt")
+				s.Logger.Log("unauthorized put user bookmarks request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
 		postID, err := strconv.Atoi(vars["postID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "postID",
+				ErrorMessage: "bad request, postID must be an integer",
 			}
-			responseData.Data = `bad request, postID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad bookmark post request")
+			s.Logger.Log("bad put bookmark post request")
 			statusCode = http.StatusBadRequest
 		}
 		// if queries are clean
 		if response.Data == nil {
-			err := (*service).BookmarkPost(username, postID)
+			err := s.UserService.BookmarkPost(username, postID)
 			switch err {
 			case nil:
-				(*logger).Log(fmt.Sprintf("success adding bookmark %d to user %s", postID, username))
+				s.Logger.Log(fmt.Sprintf("success adding bookmark %d to user %s", postID, username))
 				response.Status = "success"
 			case user.ErrUserNotFound:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("user of username %s not found", username),
 				}
-				responseData.Data = "user doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			case user.ErrPostNotFound:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"postID"`
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("post of id %d not found", postID),
 				}
-				responseData.Data = "post doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("bookmarking of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"message"`
-				}
-				responseData.Data = "server error when bookmarking post"
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
 				response.Status = "error"
-				response.Data = responseData
+				response.Message = "server error when putting using bookmark"
 				statusCode = http.StatusInternalServerError
 			}
 		}
@@ -564,7 +557,7 @@ func putUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseW
 }
 
 // deleteUserBookmarks returns a handler for DELETE /users/{username}/bookmarks/{postID} requests
-func deleteUserBookmarks(service *user.Service, logger *Logger) func(http.ResponseWriter, *http.Request) {
+func deleteUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -572,46 +565,197 @@ func deleteUserBookmarks(service *user.Service, logger *Logger) func(http.Respon
 		response.Status = "fail"
 		vars := mux.Vars(r)
 		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized delete bookmarks attempt")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 		postID, err := strconv.Atoi(vars["postID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "postID",
+				ErrorMessage: "bad request, postID must be an integer",
 			}
-			responseData.Data = `bad request, postID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad bookmark post request")
+			s.Logger.Log("bad delete bookmark post request")
 			statusCode = http.StatusBadRequest
 		}
+		// if queries are clean
+		if response.Data == nil {
+			err = s.UserService.DeleteBookmark(username, postID)
+			switch err {
+			case nil:
+				s.Logger.Log(fmt.Sprintf("success removing bookmark %d from user %s", postID, username))
+				response.Status = "success"
+			case user.ErrUserNotFound:
+				s.Logger.Log(fmt.Sprintf("deletion of bookmark failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("user of username %s not found", username),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				s.Logger.Log(fmt.Sprintf("deletion of bookmark failed because: %v", err))
+				response.Status = "error"
+				response.Message = "server error when deleting user bookmark"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// getUserPicture returns a handler for GET /users/{username}/picture requests
+func getUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+
+		vars := mux.Vars(r)
+		username := vars["username"]
+
+		u, err := s.UserService.GetUser(username)
+		switch err {
+		case nil:
+			response.Status = "success"
+			response.Data = s.HostAddress + s.ImageServingRoute + url.PathEscape(u.PictureURL)
+			s.Logger.Log("success fetching user %s picture URL", username)
+		case user.ErrUserNotFound:
+			s.Logger.Log("fetch picture URL attempt of non existing user %s", username)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("user of username %s not found", username),
+			}
+			statusCode = http.StatusNotFound
+		default:
+			s.Logger.Log("fetching of user picture URL failed because: %v", err)
+			response.Status = "error"
+			response.Message = "server error when fetching user picture URL"
+			statusCode = http.StatusInternalServerError
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// putUserPicture returns a handler for PUT /users/{username}/picture requests
+func putUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+		vars := mux.Vars(r)
+		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user picture setting request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
+		var tmpFile *os.File
+		var fileName string
+		{ // this block extracts the image
+			tmpFile, fileName, err = saveImageFromRequest(r, "image")
+			switch err {
+			case nil:
+				s.Logger.Log("image found on put user picture request")
+				defer os.Remove(tmpFile.Name())
+				defer tmpFile.Close()
+				s.Logger.Log(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
+				fileName = generateFileNameForStorage(fileName, "user")
+			case errUnacceptedType:
+				response.Data = jSendFailData{
+					ErrorMessage: "image",
+					ErrorReason:  "only types image/jpeg & image/png are accepted",
+				}
+				statusCode = http.StatusBadRequest
+			case errReadingFromImage:
+				s.Logger.Log("image not found on put request")
+				response.Data = jSendFailData{
+					ErrorReason:  "image",
+					ErrorMessage: "unable to read image file\nuse multipart-form for for posting user pictures. A form that contains the file under the key 'image', of image type JPG/PNG.",
+				}
+				statusCode = http.StatusBadRequest
+			default:
+				response.Status = "error"
+				response.Message = "server error when adding user picture"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		// if queries are clean
+		if response.Data == nil {
+			err := s.UserService.AddPicture(username, fileName)
+			switch err {
+			case nil:
+				err := saveTempFilePermanentlyToPath(tmpFile, s.ImageStoragePath+fileName)
+				if err != nil {
+					s.Logger.Log("adding of release failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when setting user picture"
+					statusCode = http.StatusInternalServerError
+					_ = s.UserService.RemovePicture(username)
+				} else {
+					s.Logger.Log(fmt.Sprintf("success adding picture %s to user %s", fileName, username))
+					response.Status = "success"
+					response.Data = s.HostAddress + s.ImageServingRoute + url.PathEscape(fileName)
+				}
+			case user.ErrUserNotFound:
+				s.Logger.Log(fmt.Sprintf("adding of user picture failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("user of username %s not found", username),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				s.Logger.Log(fmt.Sprintf("bookmarking of post failed because: %v", err))
+				response.Status = "error"
+				response.Message = "server error when setting user picture"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// deleteUserPicture returns a handler for DELETE /users/{username}/picture requests
+func deleteUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+		vars := mux.Vars(r)
+		username := vars["username"]
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
-				(*logger).Log("unauthorized update user attempt")
+				s.Logger.Log("unauthorized delete user picture attempt")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
 		// if queries are clean
 		if response.Data == nil {
-			err = (*service).DeleteBookmark(username, postID)
+			err = s.UserService.RemovePicture(username)
 			switch err {
 			case nil:
-				(*logger).Log(fmt.Sprintf("success removing bookmark %d from user %s", postID, username))
+				// TODO delete picture from fs
+				s.Logger.Log(fmt.Sprintf("success removing piture from user %s", username))
 				response.Status = "success"
 			case user.ErrUserNotFound:
-				(*logger).Log(fmt.Sprintf("deletion of bookmark failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Log(fmt.Sprintf("deletion of user pictre failed because: %v", err))
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("user of username %s not found", username),
 				}
-				responseData.Data = "user doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("deletion of bookmark failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"message"`
-				}
-				responseData.Data = "server error when bookmarking post"
+				s.Logger.Log(fmt.Sprintf("deletion of user pictre failed because: %v", err))
 				response.Status = "error"
-				response.Data = responseData
+				response.Message = "server error when removing user picture"
 				statusCode = http.StatusInternalServerError
 			}
 		}
