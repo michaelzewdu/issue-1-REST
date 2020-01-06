@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
@@ -24,6 +25,7 @@ type Dependencies struct {
 	UserService    user.Service
 	FeedService    feed.Service
 	ReleaseService release.Service
+	ChannelService channel.Service
 	Logger         Logger
 }
 type Config struct {
@@ -41,6 +43,7 @@ func NewMux(setup *Enviroment) *mux.Router {
 	)
 
 	attachUserRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
+	attachChannelRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, setup)
 
 	feedService := &setup.FeedService
@@ -52,6 +55,29 @@ func NewMux(setup *Enviroment) *mux.Router {
 	secureRouter.HandleFunc("/users/{username}/feed", putFeed(feedService, &setup.Logger)).Methods("PUT")
 	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(feedService, &setup.Logger)).Methods("DELETE")
 
+	mainRouter.HandleFunc("/channels", postChannel(&setup.ChannelService, &setup.Logger)).Methods("POST")
+	mainRouter.HandleFunc("/channels", getChannels(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}", getChannel(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}", putChannel(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}", deleteChannel(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
+	secureRouter.HandleFunc("/channels/{username}/admins", getAdmins(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}", putAdmin(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}", deleteAdmin(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
+	secureRouter.HandleFunc("/channels/{username}/owners", getOwner(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/owners/{ownerUsername}", putOwner(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}/Posts", getPosts(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/Posts/{postIDs}", getPost(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/admins/catalog", getCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", deleteReleaseFromCatalog(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
+	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", getReleaseFromCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/catalogs/official", getOfficialCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", putReleaseInCatalog(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}/catalogs}", postReleaseInCatalog(&setup.ChannelService, &setup.Logger)).Methods("POST")
+	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", putReleaseInOfficialCatalog(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}/stickiedPosts", getStickiedPosts(&setup.ChannelService, &setup.Logger)).Methods("GET")
+	secureRouter.HandleFunc("/channels/{username}/Posts/{postID}", stickyPost(&setup.ChannelService, &setup.Logger)).Methods("PUT")
+	secureRouter.HandleFunc("/channels/{username}/stickiedPosts{stickiedPostID}", deleteStickiedPost(&setup.ChannelService, &setup.Logger)).Methods("GET")
+
 	jwtBackend := NewJWTAuthenticationBackend(&setup.UserService, []byte("secret"), 3600)
 	secureRouter.Use(CheckForAuthenticationMiddleware(jwtBackend, &setup.Logger))
 
@@ -60,6 +86,35 @@ func NewMux(setup *Enviroment) *mux.Router {
 	secureRouter.Handle("/logout", negroni.New(negroni.HandlerFunc(getLogout(jwtBackend, &setup.Logger)))).Methods("GET")
 	return mainRouter
 }
+
+//func attachChannelRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment, logger *Logger) {
+//	mainRouter.HandleFunc("/channels",postChannel(&setup.ChannelService,logger)).Methods("POST")
+//	mainRouter.HandleFunc("/channels",getChannels(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}",getChannel(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}",putChannel(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}",deleteChannel(&setup.ChannelService,logger)).Methods("DELETE")
+//	secureRouter.HandleFunc("/channels/{username}/admins",getAdmins(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}",putAdmin(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}",deleteAdmin(&setup.ChannelService,logger)).Methods("DELETE")
+//	secureRouter.HandleFunc("/channels/{username}/owners",getOwner(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/owners/{ownerUsername}",putOwner(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}/Posts",getPosts(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/Posts/{postIDs}",getPost(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/admins/catalog",getCatalog(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",deleteReleaseFromCatalog(&setup.ChannelService,logger)).Methods("DELETE")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",getReleaseFromCatalog(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs/official",getOfficialCatalog(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",putReleaseInCatalog(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs}",postReleaseInCatalog(&setup.ChannelService,logger)).Methods("POST")
+//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",putReleaseInOfficialCatalog(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}/stickiedPosts",getStickiedPosts(&setup.ChannelService,logger)).Methods("GET")
+//	secureRouter.HandleFunc("/channels/{username}/Posts/{postID}",stickyPost(&setup.ChannelService,logger)).Methods("PUT")
+//	secureRouter.HandleFunc("/channels/{username}/stickiedPosts{stickiedPostID}",deleteStickiedPost(&setup.ChannelService,logger)).Methods("GET")
+//
+//
+//
+//
+//}
 
 func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment, logger *Logger) {
 	mainRouter.HandleFunc("/users", getUsers(&setup.UserService, logger)).Methods("GET")

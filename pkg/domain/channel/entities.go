@@ -5,11 +5,14 @@ import "time"
 // Channel represents a singular stream of posts that a user can subscribe to
 // under adminstration by certain users.
 type Channel struct {
-	username, name, description string
-	ownerUsername               string
-	adminUsernames              []string
-	postIDs                     []int
-	stickiedPostIDs             [2]int
-	catalogIDs                  []int
-	creationTime                time.Time
+	Username           string    `json:"username"`
+	Name               string    `json:"name,omitempty"`
+	Description        string    `json:"description,omitempty"`
+	OwnerUsername      string    `json:"ownerUsername,omitempty"`
+	AdminUsernames     []string  `json:"adminUsernames,omitempty"`
+	PostIDs            []int     `json:"postIDs,omitempty"`
+	StickiedPostIDs    [2]int    `json:"stickiedPostIDs,omitempty "`
+	ReleaseIDs         []int     `json:"releaseIDs,omitempty"`
+	OfficialReleaseIDs []int     `json:"officialReleaseIDs,omitempty"`
+	CreationTime       time.Time `json:"creationTime,omitempty"`
 }
