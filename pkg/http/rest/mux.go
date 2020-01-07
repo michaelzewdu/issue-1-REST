@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
@@ -36,6 +37,7 @@ type Dependencies struct {
 	UserService     user.Service
 	FeedService     feed.Service
 	ReleaseService  release.Service
+	PostService  post.Service
 	Logger          Logger
 }
 
