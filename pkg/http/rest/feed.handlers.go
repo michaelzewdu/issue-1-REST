@@ -12,61 +12,67 @@ import (
 )
 
 // getFeed returns a handler for GET /users/{username}/feed/ requests
-func getFeed(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func getFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
+		statusCode := http.StatusOK
+
 		response.Status = "fail"
 
 		vars := mux.Vars(r)
 		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 
-		(*logger).Log("trying to fetch feed %s", username)
-
-		f, err := (*service).GetFeed(username)
+		s.Logger.Log("trying to fetch feed %s", username)
+		f, err := s.FeedService.GetFeed(username)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = *f
-			(*logger).Log("success fetching feed of %s", username)
+			s.Logger.Log("success fetching feed of %s", username)
 		case feed.ErrFeedNotFound:
-			(*logger).Log("fetching of feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Log("fetching of feed failed because: %v", err)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
-			responseData.Data = fmt.Sprintf("feed of username %s not found", username)
-			response.Data = responseData
-			w.WriteHeader(http.StatusNotFound)
+			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("getting feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("getting feed failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when getting feed"
-			response.Data = responseData
-			w.WriteHeader(http.StatusInternalServerError)
+			response.Message = "server error when getting feed"
+			statusCode = http.StatusNotFound
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // getFeedPosts returns a handler for GET /users/{username}/feed/posts?sort=new&limit=5&offset=0 requests
-func getFeedPosts(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
+		statusCode := http.StatusOK
+
 		response.Status = "fail"
 
 		vars := mux.Vars(r)
 		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 
-		(*logger).Log("trying to fetch posts for feed")
+		s.Logger.Log("trying to fetch posts for feed")
 
 		f := feed.Feed{OwnerUsername: username}
 
@@ -87,76 +93,72 @@ func getFeedPosts(service *feed.Service, logger *Logger) func(w http.ResponseWri
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
-					(*logger).Log("bad get feed request, limit")
-					var responseData struct {
-						Data string `json:"limit"`
+					s.Logger.Log("bad get feed request, limit")
+					response.Data = jSendFailData{
+						ErrorReason:  "limit",
+						ErrorMessage: "bad request, limit can't be negative",
 					}
-					responseData.Data = "bad request, limit can't be negative"
-					response.Data = responseData
-					w.WriteHeader(http.StatusBadRequest)
+					statusCode = http.StatusBadRequest
 				}
 			}
 			if offsetRaw := r.URL.Query().Get("offset"); offsetRaw != "" {
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
-					(*logger).Log("bad request, offset")
-					var responseData struct {
-						Data string `json:"offset"`
+					s.Logger.Log("bad request, offset")
+					response.Data = jSendFailData{
+						ErrorReason:  "offset",
+						ErrorMessage: "bad request, offset can't be negative",
 					}
-					responseData.Data = "bad request, offset can't be negative"
-					response.Data = responseData
-					w.WriteHeader(http.StatusBadRequest)
+					statusCode = http.StatusBadRequest
 				}
 			}
 		}
 		// if queries are clean
 		if response.Data == nil {
-			posts, err := (*service).GetPosts(&f, sort, limit, offset)
+			posts, err := s.FeedService.GetPosts(&f, sort, limit, offset)
 			switch err {
 			case nil:
 				response.Status = "success"
 				response.Data = posts
-				(*logger).Log("success fetching posts for feed")
+				s.Logger.Log("success fetching posts for feed")
 				// TODO deliver actual posts from post service
 			case feed.ErrFeedNotFound:
-				(*logger).Log("fetching of feed failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Log("fetching of feed failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 				}
-				responseData.Data = fmt.Sprintf("feed of username %s not found", username)
-				response.Data = responseData
-				w.WriteHeader(http.StatusNotFound)
+				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log("fetching of posts from feed failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
-				}
+				s.Logger.Log("fetching of posts from feed failed because: %v", err)
 				response.Status = "error"
-				responseData.Data = "server error when getting posts"
-				response.Data = responseData
-				w.WriteHeader(http.StatusInternalServerError)
+				response.Message = "server error when getting posts"
+				statusCode = http.StatusNotFound
 			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // getFeedChannels returns a handler for GET /users/{username}/feed/channels?sort=sub-time_dsc requests
-func getFeedChannels(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// TODO test function
 		var err error
 		var response jSendResponse
+		statusCode := http.StatusOK
+
 		response.Status = "fail"
 
 		vars := mux.Vars(r)
 		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 
 		var sortBy feed.SortBy
 		var sortOrder feed.SortOrder
@@ -189,129 +191,127 @@ func getFeedChannels(service *feed.Service, logger *Logger) func(w http.Response
 			}
 		}
 
-		channels, err := (*service).GetChannels(&feed.Feed{OwnerUsername: username}, sortBy, sortOrder)
+		channels, err := s.FeedService.GetChannels(&feed.Feed{OwnerUsername: username}, sortBy, sortOrder)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = channels
-			(*logger).Log("success fetching channels of feed")
+			s.Logger.Log("success fetching channels of feed")
 		case feed.ErrFeedNotFound:
-			(*logger).Log("fetching of feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Log("fetching of feed failed because: %v", err)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
-			responseData.Data = fmt.Sprintf("feed of username %s not found", username)
-			response.Data = responseData
-			w.WriteHeader(http.StatusNotFound)
+			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of channels of feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("fetching of channels of feed failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when getting channels"
-			response.Data = responseData
-			w.WriteHeader(http.StatusInternalServerError)
+			response.Message = "server error when getting channels"
+			statusCode = http.StatusNotFound
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // postFeedChannel returns a handler for POST /users/{username}/feed/channels requests
-func postFeedChannel(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		var response jSendResponse
+		statusCode := http.StatusCreated
+
 		response.Status = "fail"
 		vars := mux.Vars(r)
 		username := vars["username"]
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 
 		c := feed.Channel{}
-		c.Username = r.FormValue("username")
-		if c.Username == "" {
+		c.Channelname = r.FormValue("channelname")
+		if c.Channelname == "" {
 			err := json.NewDecoder(r.Body).Decode(&c)
 			if err != nil {
-				var responseData struct {
-					Data string `json:"message"`
+				response.Data = jSendFailData{
+					ErrorReason: "request format",
+					ErrorMessage: `bad request, use format
+										{"channelname":"username"}`,
 				}
-				responseData.Data = `bad request, use format
-										{"channelUsername":"username"}`
-				response.Data = responseData
-				(*logger).Log("bad subscribe channel request")
-				w.WriteHeader(http.StatusBadRequest)
+				s.Logger.Log("bad subscribe channel request")
+				statusCode = http.StatusBadRequest
 			}
 		}
 		// if queries are clean
 		if response.Data == nil {
-			err := (*service).Subscribe(&feed.Feed{OwnerUsername: username}, c.Username)
-			switch err {
-			case nil:
-				response.Status = "success"
-				(*logger).Log("success subscribing feed to channel")
-			case feed.ErrFeedNotFound:
-				(*logger).Log("fetching of feed failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"username"`
+			if c.Channelname == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "channelname",
+					ErrorMessage: `channelname is required`,
 				}
-				responseData.Data = fmt.Sprintf("feed of username %s not found", username)
-				response.Data = responseData
-				w.WriteHeader(http.StatusNotFound)
-			case feed.ErrChannelDoesNotExist:
-				(*logger).Log("fetching of feed failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"channel"`
+			}
+			if response.Data == nil {
+				err := s.FeedService.Subscribe(&feed.Feed{OwnerUsername: username}, c.Channelname)
+				switch err {
+				case nil:
+					response.Status = "success"
+					s.Logger.Log("success subscribing feed to channel")
+				case feed.ErrFeedNotFound:
+					s.Logger.Log("fetching of feed failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "username",
+						ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
+					}
+					statusCode = http.StatusNotFound
+				case feed.ErrChannelDoesNotExist:
+					s.Logger.Log("fetching of feed failed because: %v", err)
+					response.Data = jSendFailData{
+						ErrorReason:  "channelname",
+						ErrorMessage: fmt.Sprintf("channel of channelname %s not found", c.Channelname),
+					}
+					statusCode = http.StatusNotFound
+				default:
+					s.Logger.Log("subscribing feed to channel failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when subscribing to channel"
+					statusCode = http.StatusNotFound
 				}
-				responseData.Data = fmt.Sprintf("channel of username %s not found", c.Username)
-				response.Data = responseData
-				w.WriteHeader(http.StatusNotFound)
-			default:
-				(*logger).Log("subscribing feed to channel failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
-				}
-				response.Status = "error"
-				responseData.Data = "server error when subscribing to channel"
-				response.Data = responseData
-				w.WriteHeader(http.StatusInternalServerError)
 			}
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // putFeed returns a handler for PUT /users/{username}/feed requests
-func putFeed(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
+		statusCode := http.StatusOK
 
 		vars := mux.Vars(r)
 		username := vars["username"]
-		// TODO check auth
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 		var requestData struct {
 			Sorting string `json:"defaultSorting"`
 		}
 		err := json.NewDecoder(r.Body).Decode(&requestData)
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "request format",
+				ErrorMessage: `bad request, use format {"defaultSorting":"hot"}`,
 			}
-			responseData.Data = `bad request, use format {"defaultSorting":"hot"}`
-			response.Data = responseData
-			(*logger).Log("bad update feed request")
-			w.WriteHeader(http.StatusBadRequest)
+			s.Logger.Log("bad update feed request")
+			statusCode = http.StatusBadRequest
 		} else {
 			newFeed := feed.Feed{}
 			{
@@ -326,120 +326,89 @@ func putFeed(service *feed.Service, logger *Logger) func(w http.ResponseWriter, 
 					newFeed.Sorting = feed.NotSet
 				}
 			}
-			switch oldFeed, err := (*service).GetFeed(username); err {
+			switch oldFeed, err := s.FeedService.GetFeed(username); err {
 			case nil:
 				// if oldFeed exists, update
 				if newFeed.Sorting == oldFeed.Sorting && newFeed.OwnerUsername == oldFeed.OwnerUsername {
 					response.Status = "success"
 				} else {
-					(*logger).Log("trying to update feed of user %s", username)
+					s.Logger.Log("trying to update feed of user %s", username)
 					if newFeed.OwnerUsername == "" {
 						newFeed.OwnerUsername = username
 					}
-					if err = (*service).UpdateFeed(oldFeed.ID, &newFeed); err != nil {
+					if err = s.FeedService.UpdateFeed(oldFeed.ID, &newFeed); err != nil {
 
-						(*logger).Log("update of feed failed because: %s", err.Error())
-
-						var responseData struct {
-							Data string `json:"message"`
-						}
-						responseData.Data = "server error when updating feed"
+						s.Logger.Log("update of feed failed because: %v", err)
 						response.Status = "error"
-						response.Data = responseData
-						w.WriteHeader(http.StatusNotFound)
+						response.Message = "server error when updating feed"
+						statusCode = http.StatusNotFound
 					} else {
-						(*logger).Log("success updating of feed %s", username)
+						s.Logger.Log("success updating of feed %s", username)
 						response.Status = "success"
 					}
 				}
 			case feed.ErrFeedNotFound:
 				// if oldFeed not found, create
-				(*logger).Log("creating new user because username on PUT not recognized: %s", err.Error())
+				s.Logger.Log("creating new user because username on PUT not recognized: %v", err)
 
 				newFeed.OwnerUsername = username //make sure created user has the new username
-				err := (*service).AddFeed(&newFeed)
+				err := s.FeedService.AddFeed(&newFeed)
 				if err != nil {
-					(*logger).Log("creation of feed failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
-					}
+					s.Logger.Log("creation of feed failed because: %v", err)
 					response.Status = "error"
-					responseData.Data = "server error when creating Feed"
-					response.Data = responseData
-					w.WriteHeader(http.StatusInternalServerError)
+					response.Message = "server error when creating Feed"
+					statusCode = http.StatusNotFound
 				} else {
 					response.Status = "success"
 				}
-				(*logger).Log("success creating feed for user %s", username)
+				s.Logger.Log("success creating feed for user %s", username)
 			default:
-				(*logger).Log("updating of feed failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
-				}
+				s.Logger.Log("updating of feed failed because: %v", err)
 				response.Status = "error"
-				responseData.Data = "server error when updating Feed"
-				response.Data = responseData
-				w.WriteHeader(http.StatusInternalServerError)
+				response.Message = "server error when updating Feed"
+				statusCode = http.StatusNotFound
 			}
 
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // deleteFeedChannel returns a handler for DELETE /users/{username}/feed/channels/{channelname} requests
-func deleteFeedChannel(service *feed.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func deleteFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
+		statusCode := http.StatusOK
 
 		vars := mux.Vars(r)
 		username := vars["username"]
-
+		{ // this block secures the route
+			if username != r.Header.Get("authorized_username") {
+				s.Logger.Log("unauthorized user feed request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 		channelname := vars["channelname"]
-		err := (*service).Unsubscribe(&feed.Feed{OwnerUsername: username}, channelname)
+		err := s.FeedService.Unsubscribe(&feed.Feed{OwnerUsername: username}, channelname)
 		switch err {
 		case nil:
 			response.Status = "success"
-			(*logger).Log("success unsubscription feed from channel")
-		case feed.ErrChannelDoesNotExist:
-			(*logger).Log("fetching of feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"channel"`
-			}
-			responseData.Data = fmt.Sprintf("channel of username %s not found", channelname)
-			response.Data = responseData
-			w.WriteHeader(http.StatusNotFound)
+			s.Logger.Log("success unsubscription feed from channel")
 		case feed.ErrFeedNotFound:
-			(*logger).Log("deletion of feed failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Log("deletion of feed failed because: %v", err)
+			response.Data = jSendFailData{
+				ErrorReason:  "username",
+				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
-			responseData.Data = fmt.Sprintf("feed of username %s not found", username)
-			response.Data = responseData
-			w.WriteHeader(http.StatusNotFound)
+			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("unsubscription of feed from failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("unsubscription of feed from failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when unsubscription from channel"
-			response.Data = responseData
-			w.WriteHeader(http.StatusInternalServerError)
+			response.Message = "server error when unsubscription from channel"
+			statusCode = http.StatusNotFound
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }

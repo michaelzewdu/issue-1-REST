@@ -41,7 +41,7 @@ func (backend *JWTAuthenticationBackend) GenerateToken(username string) (string,
 	return tokenString, nil
 }
 
-// Authenticate checks wether the given User structs holds appropriate credentials
+// Authenticate checks whether the given User struct holds appropriate credentials
 func (backend *JWTAuthenticationBackend) Authenticate(user *user.User) (bool, error) {
 	return (*backend.userService).Authenticate(user)
 }
@@ -64,7 +64,7 @@ func (backend *JWTAuthenticationBackend) AddToBlacklist(tokenString string) erro
 	return expireOffset
 }*/
 
-// IsInBlacklist checks wether a given token is invalidated previously.
+// IsInBlacklist checks whether a given token is invalidated previously.
 func (backend *JWTAuthenticationBackend) IsInBlacklist(token string) bool {
 	_, ok := (*backend).blacklist[token]
 

@@ -9,24 +9,24 @@ import (
 	"net/http"
 )
 
-// CheckForAuthenticationMiddleware returns a gorrila/mux middleware function that checks 
-// if the attached request has a valid authentication token. 
-func CheckForAuthenticationMiddleware(authBackend *JWTAuthenticationBackend, logger *Logger) func(next http.Handler) http.Handler {
+// CheckForAuthenticationMiddleware returns a gorilla/mux middleware function that checks
+// if the attached request has a valid authentication token.
+func CheckForAuthenticationMiddleware(s *Setup) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 				}
-				return authBackend.key, nil
+				return s.jwtBackend.key, nil
 			})
-			if err == nil && token.Valid && !authBackend.IsInBlacklist(r.Header.Get("Authorization")) {
+			if err == nil && token.Valid && !s.jwtBackend.IsInBlacklist(r.Header.Get("Authorization")) {
 				claimMap, _ := token.Claims.(jwt.MapClaims)
 				username := claimMap["sub"]
 				r.Header.Add("authorized_username", username.(string))
 				next.ServeHTTP(w, r)
 			} else {
-				(*logger).Log("unauthorized access attempt")
+				s.Logger.Log("unauthorized access attempt")
 				w.WriteHeader(http.StatusUnauthorized)
 			}
 		})
@@ -34,45 +34,36 @@ func CheckForAuthenticationMiddleware(authBackend *JWTAuthenticationBackend, log
 }
 
 // postTokenAuth returns a handler for POST /token-auth requests
-func postTokenAuth(authBackend *JWTAuthenticationBackend, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
-		responseCode := http.StatusOK
+		statusCode := http.StatusOK
 		response.Status = "fail"
 
 		requestUser := new(user.User)
 		err := json.NewDecoder(r.Body).Decode(&requestUser)
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "request format",
+				ErrorMessage: `bad request, use format {"username":"username","password":"password"}`,
 			}
-			responseData.Data = `bad request, use format {"username":"username","password":"password"}`
-			response.Data = responseData
-			(*logger).Log("bad auth request")
-			responseCode = http.StatusBadRequest
+			s.Logger.Log("bad auth request")
+			statusCode = http.StatusBadRequest
 		} else {
-			success, err := (*authBackend).Authenticate(requestUser)
+			success, err := s.jwtBackend.Authenticate(requestUser)
 			if err != nil {
-				(*logger).Log("auth failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
-				}
+				s.Logger.Log("auth failed because: %v", err)
 				response.Status = "error"
-				responseData.Data = "server error when generating token"
-				response.Data = responseData
-				responseCode = http.StatusInternalServerError
+				response.Message = "server error when generating token"
+				statusCode = http.StatusInternalServerError
 			}
 			if success {
-				tokenString, err := (*authBackend).GenerateToken(requestUser.Username)
+				tokenString, err := s.jwtBackend.GenerateToken(requestUser.Username)
 				if err != nil {
-					(*logger).Log("token generation failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
-					}
+					s.Logger.Log("token generation failed because: %v", err)
 					response.Status = "error"
-					responseData.Data = "server error when authenticating"
-					response.Data = responseData
-					responseCode = http.StatusInternalServerError
+					response.Message = "server error when authenticating"
+					statusCode = http.StatusInternalServerError
 				} else {
 					response.Status = "success"
 					var responseData struct {
@@ -82,44 +73,31 @@ func postTokenAuth(authBackend *JWTAuthenticationBackend, logger *Logger) func(w
 					response.Data = responseData
 				}
 			} else {
-				(*logger).Log("unsuccessful auth attempt")
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Log("unsuccessful auth attempt")
+				response.Data = jSendFailData{
+					ErrorReason:  "credentials",
+					ErrorMessage: "incorrect username or password",
 				}
-				responseData.Data = "incorrect username or password"
-				response.Data = responseData
-				responseCode = http.StatusUnauthorized
+				statusCode = http.StatusUnauthorized
 			}
-
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		w.WriteHeader(responseCode)
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // getTokenAuthRefresh returns a handler for GET /token-auth-refresh requests
-func getTokenAuthRefresh(authBackend *JWTAuthenticationBackend, logger *Logger) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	return func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		var response jSendResponse
-		responseCode := http.StatusOK
+		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		tokenString, err := (*authBackend).GenerateToken(r.Header.Get("authorized_username"))
+		tokenString, err := s.jwtBackend.GenerateToken(r.Header.Get("authorized_username"))
 		if err != nil {
-			(*logger).Log("token generation failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("token generation failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when authenticating"
-			response.Data = responseData
-			responseCode = http.StatusInternalServerError
+			response.Message = "server error when authenticating"
+			statusCode = http.StatusInternalServerError
 		} else {
 			response.Status = "success"
 			var responseData struct {
@@ -128,50 +106,32 @@ func getTokenAuthRefresh(authBackend *JWTAuthenticationBackend, logger *Logger) 
 			responseData.Data = tokenString
 			response.Data = responseData
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		w.WriteHeader(responseCode)
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // getLogout returns a handler for GET /logout requests
-func getLogout(authBackend *JWTAuthenticationBackend, logger *Logger) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func getLogout(s *Setup) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	return func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 		var response jSendResponse
-		responseCode := http.StatusOK
+		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		err := invalidateAttachedToken(r, authBackend)
+		err := invalidateAttachedToken(r, s)
 		if err != nil {
-			(*logger).Log("logout failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
-			}
+			s.Logger.Log("logout failed because: %v", err)
 			response.Status = "error"
-			responseData.Data = "server error when logging out"
-			response.Data = responseData
-			responseCode = http.StatusInternalServerError
+			response.Message = "server error when logging out"
+			statusCode = http.StatusInternalServerError
 		} else {
 			response.Status = "success"
 		}
-		w.Header().Set("Content-Type", "application/json")
-		encoder := json.NewEncoder(w)
-		encoder.SetIndent("", "\t\t")
-		w.WriteHeader(responseCode)
-		err = encoder.Encode(response)
-		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // invalidateAttachedToken is a helper function.
-func invalidateAttachedToken(req *http.Request, authBackend *JWTAuthenticationBackend) error {
+func invalidateAttachedToken(req *http.Request, s *Setup) error {
 	tokenString := req.Header.Get("Authorization")
-	return authBackend.AddToBlacklist(tokenString)
+	return s.jwtBackend.AddToBlacklist(tokenString)
 }

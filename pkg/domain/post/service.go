@@ -12,8 +12,8 @@ type Service interface {
 	DeletePost(id int) error
 	AddPost(p *Post) (*Post, error)
 	UpdatePost(pos *Post, id int) (*Post, error)
-	GetPostReleases(p *Post) ([]*Release, error)
-	GetPostRelease(pId int, rId int) (*Release, error)
+	// GetPostReleases(p *Post) ([]*Release, error)
+	// GetPostRelease(pId int, rId int) (*Release, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
 	GetPostStar(id int, username string) (*Star, error)
 	DeletePostStar(id int, username string) error
@@ -27,8 +27,8 @@ type Repository interface {
 	DeletePost(id int) error
 	AddPost(p *Post) (*Post, error)
 	UpdatePost(pos *Post, id int) (*Post, error)
-	GetPostReleases(p *Post) ([]*Release, error)
-	GetPostRelease(pId int, rId int) (*Release, error)
+	// GetPostReleases(p *Post) ([]*Release, error)
+	// GetPostRelease(pId int, rId int) (*Release, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
 	GetPostStar(id int, username string) (*Star, error)
 	DeletePostStar(id int, username string) error
@@ -64,3 +64,67 @@ var ErrReleaseNotFound = fmt.Errorf("Release not found")
 
 //ErrStarNotFound is returned when requested Star is not found
 var ErrStarNotFound = fmt.Errorf("Star not found")
+
+//ErrSomePostDataNotPersisted is returned when data aren't properly added to post database
+var ErrSomePostDataNotPersisted = fmt.Errorf("Data not properly added")
+
+type service struct {
+	repo *Repository
+}
+
+// NewService returns a struct that implements the Service interface
+func NewService(repo *Repository) Service {
+	return &service{repo: repo}
+}
+
+// GetPost gets the Post stored under the given id.
+func (s service) GetPost(id int) (*Post, error) {
+	p, err := (*s.repo).GetPost(id)
+	if err != nil {
+		return nil, ErrPostNotFound
+	}
+
+	return p, err
+}
+
+// DeletePost Deletes the Post stored under the given id.
+func (s service) DeletePost(id int) error {
+	err := (*s.repo).DeletePost(id)
+	if err != nil {
+		return ErrPostNotFound
+	}
+	return err
+
+}
+
+// AddPost Adds the Post stored under the given id.
+func (s service) AddPost(p *Post) (*Post, error) {
+	return (*s.repo).AddPost(p)
+}
+
+//UpdatePost updates the post with given id and post struct
+func (s service) UpdatePost(pos *Post, id int) (*Post, error) {
+	return (*s.repo).UpdatePost(pos, id)
+}
+
+// GetPostReleases(p *Post) ([]*Release, error)
+// GetPostRelease(pId int, rId int) (*Release, error)
+func (s service) SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error) {
+	if limit < 0 || offset < 0 {
+		return nil, fmt.Errorf("invalid pagination")
+	}
+	return (*s.repo).SearchPost(pattern, by, order, limit, offset)
+
+}
+func (s service) GetPostStar(id int, username string) (*Star, error) {
+	return (*s.repo).GetPostStar(id, username)
+}
+func (s service) DeletePostStar(id int, username string) error {
+	return (*s.repo).DeletePostStar(id, username)
+}
+func (s service) AddPostStar(id int, star *Star) (*Star, error) {
+	return (*s.repo).AddPostStar(id, star)
+}
+func (s service) UpdatePostStar(id int, star *Star) (*Star, error) {
+	return (*s.repo).UpdatePostStar(id, star)
+}

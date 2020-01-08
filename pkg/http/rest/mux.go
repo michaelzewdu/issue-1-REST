@@ -3,12 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/microcosm-cc/bluemonday"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
+
+	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
@@ -37,7 +38,8 @@ type Dependencies struct {
 	UserService     user.Service
 	FeedService     feed.Service
 	ReleaseService  release.Service
-	PostService  post.Service
+	PostService     post.Service
+	jwtBackend      *JWTAuthenticationBackend
 	Logger          Logger
 }
 
@@ -47,33 +49,52 @@ type Config struct {
 }
 
 // NewMux returns a new multiplexer with all the used setup.
-func NewMux(setup *Setup) *mux.Router {
+func NewMux(s *Setup) *mux.Router {
 
 	mainRouter := mux.NewRouter().StrictSlash(true)
 	secureRouter := mainRouter.NewRoute().Subrouter()
 
-	mainRouter.PathPrefix(setup.ImageServingRoute).Handler(
-		http.StripPrefix(setup.ImageServingRoute, http.FileServer(http.Dir(setup.ImageStoragePath))))
+	mainRouter.PathPrefix(s.ImageServingRoute).Handler(
+		http.StripPrefix(s.ImageServingRoute, http.FileServer(http.Dir(s.ImageStoragePath))))
 
-	attachUserRoutesToRouters(mainRouter, secureRouter, setup)
-	attachReleaseRoutesToRouters(mainRouter, secureRouter, setup)
+	attachUserRoutesToRouters(mainRouter, secureRouter, s)
+	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
+	attachFeedRoutesToRouters(secureRouter, s)
+	attachPostRoutesToRouters(mainRouter,secureRouter,s)
+	s.jwtBackend = NewJWTAuthenticationBackend(&s.UserService, []byte("secret"), 3600)
+	secureRouter.Use(CheckForAuthenticationMiddleware(s))
 
-	feedService := &setup.FeedService
-	//TODO secure these routes
-	secureRouter.HandleFunc("/users/{username}/feed", getFeed(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/posts", getFeedPosts(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/channels", getFeedChannels(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/channels", postFeedChannel(feedService, &setup.Logger)).Methods("POST")
-	secureRouter.HandleFunc("/users/{username}/feed", putFeed(feedService, &setup.Logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(feedService, &setup.Logger)).Methods("DELETE")
+	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
 
-	jwtBackend := NewJWTAuthenticationBackend(&setup.UserService, []byte("secret"), 3600)
-	secureRouter.Use(CheckForAuthenticationMiddleware(jwtBackend, &setup.Logger))
-
-	mainRouter.HandleFunc("/token-auth", postTokenAuth(jwtBackend, &setup.Logger)).Methods("POST")
-	secureRouter.Handle("/token-auth-refresh", negroni.New(negroni.HandlerFunc(getTokenAuthRefresh(jwtBackend, &setup.Logger)))).Methods("GET")
-	secureRouter.Handle("/logout", negroni.New(negroni.HandlerFunc(getLogout(jwtBackend, &setup.Logger)))).Methods("GET")
 	return mainRouter
+}
+func attachAuthRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/token-auth", postTokenAuth(setup)).Methods("POST")
+	secureRouter.Handle("/token-auth-refresh", negroni.New(negroni.HandlerFunc(getTokenAuthRefresh(setup)))).Methods("GET")
+	secureRouter.Handle("/logout", negroni.New(negroni.HandlerFunc(getLogout(setup)))).Methods("GET")
+}
+
+func attachFeedRoutesToRouters(secureRouter *mux.Router, setup *Setup) {
+	//TODO secure these routes
+	secureRouter.HandleFunc("/users/{username}/feed", getFeed(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/posts", getFeedPosts(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/channels", getFeedChannels(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/channels", postFeedChannel(setup)).Methods("POST")
+	secureRouter.HandleFunc("/users/{username}/feed", putFeed(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(setup)).Methods("DELETE")
+
+}
+func attachPostRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/posts", getPosts(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts", postPost(setup)).Methods("POST")
+	//TODO secure these routes
+	mainRouter.HandleFunc("/posts/{id}", getPost(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{id}", putPost(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/posts/{id}", deletePost(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/posts/{id}/stars", getPostStars(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{id}/stars/{username}", getPostStar(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{id}/stars", putPostStar(setup)).Methods("PUT")
+
 }
 
 func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
@@ -124,7 +145,7 @@ func writeResponseToWriter(response jSendResponse, w http.ResponseWriter, status
 }
 
 var errUnacceptedType = fmt.Errorf("file mime type not accepted")
-var errReadingFromImage = fmt.Errorf("file mime type not accepted")
+var errReadingFromImage = fmt.Errorf("err reading image file from request")
 
 func saveImageFromRequest(r *http.Request, fileName string) (*os.File, string, error) {
 	file, header, err := r.FormFile(fileName)
