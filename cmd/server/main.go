@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
 	"log"
 	"net/http"
 	"time"
@@ -52,6 +53,7 @@ func (logger *logger) Log(format string, a ...interface{}) {
 func main() {
 	setup := rest.Enviroment{}
 	setup.Logger = &logger{}
+	var err error
 
 	//logger := log.New(os.Stdout, "",log.Ltime)
 	var db *sql.DB
@@ -66,7 +68,7 @@ func main() {
 		dataSourceName := fmt.Sprintf(
 			`host=%s port=%s dbname='%s' user='%s' password='%s' sslmode=disable`,
 			host, port, dbname, role, password)
-		db, err := sql.Open(
+		db, err = sql.Open(
 			"postgres", dataSourceName)
 		if err != nil {
 			setup.Logger.Log("database connection failed because: %s", err.Error())
@@ -99,6 +101,14 @@ func main() {
 		cacheRepos["Feed"] = &feedCacheRepo
 		setup.FeedService = feed.NewService(&feedCacheRepo, &services)
 		services["Feed"] = &setup.FeedService
+	}
+	{
+		var channelDBRepo channel.Repository = postgres.NewChannelRepository(db, &dbRepos)
+		dbRepos["Channel"] = &channelDBRepo
+		var channelCacheRepo channel.Repository = memory.NewChannelRepository(&channelDBRepo, &cacheRepos)
+		cacheRepos["Feed"] = &channelDBRepo
+		setup.ChannelService = channel.NewService(&channelCacheRepo, &services)
+		services["Channel"] = &setup.ChannelService
 	}
 
 	setup.ImageServingRoute = "/images/"
