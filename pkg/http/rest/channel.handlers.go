@@ -14,6 +14,7 @@ import (
 
 func getChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
@@ -22,6 +23,7 @@ func getChannel(service *channel.Service, logger *Logger) func(w http.ResponseWr
 
 		(*logger).Log("trying to fetch channel %s", username)
 		c, err := (*service).GetChannel(username)
+
 		switch err {
 		case nil:
 			response.Status = "success"
@@ -99,31 +101,42 @@ func postChannel(service *channel.Service, logger *Logger) func(w http.ResponseW
 
 			if response.Data == nil {
 				(*logger).Log("trying to add channel %s", c.Username, c.Name, c.Description)
+				if &c != nil {
+					err := (*service).AddChannel(&c)
+					switch err {
+					case nil:
+						response.Status = "success"
+						(*logger).Log("success adding channel %s", c.Username, c.Name, c.Description)
+					case channel.ErrInvalidChannelData:
+						(*logger).Log("creating of channel failed because: %s", err.Error())
+						var responseData struct {
+							Data string `json:"data"`
+						}
+						responseData.Data = "channel must have name & username to be created"
+						response.Data = responseData
+						statusCode = http.StatusBadRequest
 
-				err := (*service).AddChannel(&c)
-				switch err {
-				case nil:
-					response.Status = "success"
-					(*logger).Log("success adding channel %s", c.Username, c.Name, c.Description)
-				case channel.ErrUserNameOccupied:
-					(*logger).Log("adding of channel failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"username"`
-					}
-					responseData.Data = "username is occupied"
-					response.Data = responseData
-					statusCode = http.StatusConflict
+					case channel.ErrUserNameOccupied:
+						(*logger).Log("adding of channel failed because: %s", err.Error())
+						var responseData struct {
+							Data string `json:"username"`
+						}
+						responseData.Data = "username is occupied"
+						response.Data = responseData
+						statusCode = http.StatusConflict
 
-				default:
-					(*logger).Log("adding of channel failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
+					default:
+						(*logger).Log("adding of channel failed because: %s", err.Error())
+						var responseData struct {
+							Data string `json:"message"`
+						}
+						response.Status = "error"
+						responseData.Data = "server error when adding channel"
+						response.Data = responseData
+						statusCode = http.StatusInternalServerError
 					}
-					response.Status = "error"
-					responseData.Data = "server error when adding channel"
-					response.Data = responseData
-					statusCode = http.StatusInternalServerError
 				}
+
 			} else {
 				// if required fields aren't present
 				(*logger).Log("bad adding channel request")
@@ -281,6 +294,7 @@ func getChannels(service *channel.Service, logger *Logger) func(w http.ResponseW
 func deleteChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
+		var err error
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
@@ -290,7 +304,7 @@ func deleteChannel(service *channel.Service, logger *Logger) func(w http.Respons
 			//AUTHORIZATION
 		}
 		(*logger).Log("trying to delete channel %s", username)
-		err := (*service).DeleteChannel(username)
+		err = (*service).DeleteChannel(username)
 		if err != nil {
 			(*logger).Log("deletion of channel failed because: %s", err.Error())
 			var responseData struct {
@@ -321,6 +335,7 @@ func getAdmins(service *channel.Service, logger *Logger) func(w http.ResponseWri
 		c, err := (*service).GetChannel(username)
 		switch err {
 		case nil:
+
 			response.Status = "success"
 			response.Data = c.AdminUsernames
 			(*logger).Log("success fetching admins of channel %s", username)
@@ -617,7 +632,7 @@ func deleteReleaseFromCatalog(service *channel.Service, logger *Logger) func(w h
 			//TODO
 			//AUTHORIZATION
 		}
-		ReleaseID, err := strconv.Atoi(vars["ReleaseID"])
+		ReleaseID, err := strconv.Atoi(vars["catalogID"])
 		if err != nil {
 			var responseData struct {
 				Data string `json:"message"`
@@ -667,7 +682,6 @@ func deleteReleaseFromCatalog(service *channel.Service, logger *Logger) func(w h
 }
 func getReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
@@ -677,8 +691,8 @@ func getReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http
 			//TODO
 			//AUTHORIZATION
 		}
-		c, err := (*service).GetChannel(username)
-		ReleaseID, errC := strconv.Atoi(vars["releaseID"])
+
+		ReleaseID, errC := strconv.Atoi(vars["catalogID"])
 		if errC != nil {
 			var responseData struct {
 				Data string `json:"message"`
@@ -689,6 +703,8 @@ func getReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http
 			statusCode = http.StatusBadRequest
 
 		} else {
+			c, err := (*service).GetChannel(username)
+			(*logger).Log("geyying")
 			switch err {
 			case nil:
 				for i := 0; i < len(c.ReleaseIDs); i++ {
@@ -753,7 +769,7 @@ func putReleaseInOfficialCatalog(service *channel.Service, logger *Logger) func(
 			//AUTHORIZATION
 		}
 
-		releaseID, err := strconv.Atoi(vars["releaseID"])
+		releaseID, err := strconv.Atoi(vars["catalogID"])
 		if err != nil {
 			var responseData struct {
 				Data string `json:"message"`
@@ -792,7 +808,7 @@ func putReleaseInOfficialCatalog(service *channel.Service, logger *Logger) func(
 							response.Data = responseData
 							statusCode = http.StatusNotFound
 						default:
-
+							(*logger).Log(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
 							var responseData struct {
 								Data string `json:"message"`
 							}
@@ -867,8 +883,9 @@ func getPost(service *channel.Service, logger *Logger) func(w http.ResponseWrite
 				for i := 0; i < len(c.PostIDs); i++ {
 					if c.PostIDs[i] == postID {
 						response.Status = "success"
-						response.Data = c.PostIDs
+						response.Data = c.PostIDs[i]
 						(*logger).Log("success fetching post of channel %s", username)
+						break
 					} else {
 
 						var responseData struct {
@@ -954,54 +971,33 @@ func getStickiedPosts(service *channel.Service, logger *Logger) func(w http.Resp
 			//AUTHORIZATION
 		}
 		c, err := (*service).GetChannel(username)
-		stickiedPost, errC := strconv.Atoi(vars["stickiedPostIDs"])
-		if errC != nil {
+
+		switch err {
+		case nil:
+
+			response.Status = "success"
+			response.Data = c.StickiedPostIDs
+			(*logger).Log("success fetching post of channel %s", username)
+
+		case channel.ErrChannelNotFound:
+			(*logger).Log("fetch attempt of post from non existent channel %s", username)
+			var responseData struct {
+				Data string `json:"username"`
+			}
+			responseData.Data = fmt.Sprintf("channel of %s not found", username)
+			response.Data = responseData
+			statusCode = http.StatusNotFound
+		default:
+			(*logger).Log("fetching of post of channel failed because: %s", err.Error())
 			var responseData struct {
 				Data string `json:"message"`
 			}
-			responseData.Data = `bad request, stickiedPostIDs must be an integer`
+			responseData.Data = "server error when fetching post of channel"
+			response.Status = "error"
 			response.Data = responseData
-			(*logger).Log("bad get post request")
-			statusCode = http.StatusBadRequest
-
-		} else {
-			switch err {
-			case nil:
-				for i := 0; i < len(c.StickiedPostIDs); i++ {
-					if c.StickiedPostIDs[i] == stickiedPost {
-						response.Status = "success"
-						response.Data = c.StickiedPostIDs[i]
-						(*logger).Log("success fetching post of channel %s", username)
-					} else {
-
-						var responseData struct {
-							Data string `json:"postID"`
-						}
-						responseData.Data = "post doesn't exits"
-						response.Data = responseData
-						statusCode = http.StatusNotFound
-
-					}
-				}
-			case channel.ErrChannelNotFound:
-				(*logger).Log("fetch attempt of post from non existent channel %s", username)
-				var responseData struct {
-					Data string `json:"username"`
-				}
-				responseData.Data = fmt.Sprintf("channel of %s not found", username)
-				response.Data = responseData
-				statusCode = http.StatusNotFound
-			default:
-				(*logger).Log("fetching of post of channel failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
-				}
-				responseData.Data = "server error when fetching post of channel"
-				response.Status = "error"
-				response.Data = responseData
-				statusCode = http.StatusInternalServerError
-			}
+			statusCode = http.StatusInternalServerError
 		}
+
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
@@ -1016,7 +1012,7 @@ func deleteStickiedPost(service *channel.Service, logger *Logger) func(w http.Re
 			//TODO
 			//AUTHORIZATION
 		}
-		stickiedPostID, err := strconv.Atoi(vars["StickiedPostID"])
+		stickiedPostID, err := strconv.Atoi(vars["stickiedPostID"])
 		if err != nil {
 			var responseData struct {
 				Data string `json:"message"`
