@@ -124,8 +124,12 @@ func (service *service) GetUser(username string) (*User, error) {
 // UpdateUser updates the user of the given username according to the User struct given
 func (service *service) UpdateUser(u *User, username string) (*User, error) {
 	if _, err := service.GetUser(username); err != nil {
-		u.Username = username
-		return service.AddUser(u)
+		if u.Username == "" || u.Username == username {
+			u.Username = username
+			return service.AddUser(u)
+		} else {
+			return nil, err
+		}
 	}
 	// Checks if username is trying to be changed, then if the new username is occupied
 	if u.Username != "" {

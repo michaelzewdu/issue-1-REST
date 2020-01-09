@@ -7,28 +7,70 @@ import (
 	"github.com/dgrijalva/jwt-go/request"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 	"net/http"
+	"time"
 )
 
-// CheckForAuthenticationMiddleware returns a gorilla/mux middleware function that checks
+// ExtractAuthTokenMiddleware returns a gorilla/mux middleware function that checks
 // if the attached request has a valid authentication token.
-func CheckForAuthenticationMiddleware(s *Setup) func(next http.Handler) http.Handler {
+// If valid JWT token found, it'll extract the sub, the username in this case and attaches
+// it to the passed request.
+// If no token is found, it'll attach an invalid username.
+func ExtractAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 				}
-				return s.jwtBackend.key, nil
+				return s.TokenSigningSecret, nil
 			})
 			if err == nil && token.Valid && !s.jwtBackend.IsInBlacklist(r.Header.Get("Authorization")) {
 				claimMap, _ := token.Claims.(jwt.MapClaims)
-				username := claimMap["sub"]
-				r.Header.Add("authorized_username", username.(string))
-				next.ServeHTTP(w, r)
-			} else {
-				s.Logger.Log("unauthorized access attempt")
-				w.WriteHeader(http.StatusUnauthorized)
+				if claimMap.VerifyExpiresAt(time.Now().Unix(), true) {
+					// if valid
+					username := claimMap["sub"]
+					r.Header.Add("authorized_username", username.(string))
+					r.Header.Add("authorized_username_expired", "")
+					next.ServeHTTP(w, r)
+					return
+				} else if claimMap.VerifyExpiresAt(time.Now().Add(-s.TokenRefreshLifetime).Unix(), true) {
+					// if expired but still refreshable
+					username := claimMap["sub"]
+					r.Header.Add("authorized_username_expired", username.(string))
+					r.Header.Add("authorized_username", "")
+					next.ServeHTTP(w, r)
+					return
+				} else {
+					s.Logger.Printf("unauthorized access with expired token")
+				}
 			}
+			// if not valid
+			r.Header.Add("authorized_username", "HerUsernameIs23LettersL")
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// CheckForAuthMiddleware blocks access if there's no valid credential's attached
+// on the request from the ExtractAuthTokenMiddleware.
+func CheckForAuthMiddleware(s *Setup) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authUsername := r.Header.Get("authorized_username")
+			expiredAuthUsername := r.Header.Get("authorized_username_expired")
+
+			if authUsername != "" && len(authUsername) < 23 {
+				// if authUsername is valid
+				next.ServeHTTP(w, r)
+				return
+			} else if authUsername == "" && expiredAuthUsername != "" {
+				s.Logger.Printf("refresh token attempt")
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			s.Logger.Printf("unauthenticated access attempt")
+			w.WriteHeader(http.StatusUnauthorized)
 		})
 	}
 }
@@ -47,12 +89,12 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				ErrorReason:  "request format",
 				ErrorMessage: `bad request, use format {"username":"username","password":"password"}`,
 			}
-			s.Logger.Log("bad auth request")
+			s.Logger.Printf("bad auth request")
 			statusCode = http.StatusBadRequest
 		} else {
 			success, err := s.jwtBackend.Authenticate(requestUser)
 			if err != nil {
-				s.Logger.Log("auth failed because: %v", err)
+				s.Logger.Printf("auth failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when generating token"
 				statusCode = http.StatusInternalServerError
@@ -60,7 +102,7 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if success {
 				tokenString, err := s.jwtBackend.GenerateToken(requestUser.Username)
 				if err != nil {
-					s.Logger.Log("token generation failed because: %v", err)
+					s.Logger.Printf("token generation failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when authenticating"
 					statusCode = http.StatusInternalServerError
@@ -71,9 +113,10 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					}
 					responseData.Data = tokenString
 					response.Data = responseData
+					s.Logger.Printf("user %s got token", requestUser.Username)
 				}
 			} else {
-				s.Logger.Log("unsuccessful auth attempt")
+				s.Logger.Printf("unsuccessful authentication attempt")
 				response.Data = jSendFailData{
 					ErrorReason:  "credentials",
 					ErrorMessage: "incorrect username or password",
@@ -86,15 +129,26 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTokenAuthRefresh returns a handler for GET /token-auth-refresh requests
-func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	return func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
+		{ // this block secures the route
+			if r.Header.Get("authorized_username") != "" {
+
+			} else if r.Header.Get("authorized_username_expired") != "" {
+				r.Header.Add("authorized_username", r.Header.Get("authorized_username_expired"))
+			} else {
+				s.Logger.Printf("unauthorized refresh request")
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
 		tokenString, err := s.jwtBackend.GenerateToken(r.Header.Get("authorized_username"))
 		if err != nil {
-			s.Logger.Log("token generation failed because: %v", err)
+			s.Logger.Printf("token generation failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when authenticating"
 			statusCode = http.StatusInternalServerError
@@ -105,26 +159,28 @@ func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request, 
 			}
 			responseData.Data = tokenString
 			response.Data = responseData
+			s.Logger.Printf("user %s refreshed token", r.Header.Get("authorized_username"))
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
 // getLogout returns a handler for GET /logout requests
-func getLogout(s *Setup) func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	return func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+func getLogout(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
 		err := invalidateAttachedToken(r, s)
 		if err != nil {
-			s.Logger.Log("logout failed because: %v", err)
+			s.Logger.Printf("logout failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when logging out"
 			statusCode = http.StatusInternalServerError
 		} else {
 			response.Status = "success"
+			s.Logger.Printf("token was invalidated")
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
