@@ -44,7 +44,7 @@ const (
 )
 
 var ErrUserNameOccupied = fmt.Errorf("user name is occupied")
-var ErrChannelNotFound = fmt.Errorf("channel not found")
+var ErrChannelNotFound = fmt.Errorf("channel not found  error")
 var ErrInvalidChannelData = fmt.Errorf("passed channel data is invalid")
 var ErrAdminNotFound = fmt.Errorf("admin not found")
 var ErrOwnerNotFound = fmt.Errorf("owner not found")

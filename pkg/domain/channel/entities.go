@@ -11,7 +11,7 @@ type Channel struct {
 	OwnerUsername      string    `json:"ownerUsername,omitempty"`
 	AdminUsernames     []string  `json:"adminUsernames,omitempty"`
 	PostIDs            []int     `json:"postIDs,omitempty"`
-	StickiedPostIDs    [2]int    `json:"stickiedPostIDs,omitempty "`
+	StickiedPostIDs    []int     `json:"stickiedPostIDs,omitempty "`
 	ReleaseIDs         []int     `json:"releaseIDs,omitempty"`
 	OfficialReleaseIDs []int     `json:"officialReleaseIDs,omitempty"`
 	CreationTime       time.Time `json:"creationTime,omitempty"`
