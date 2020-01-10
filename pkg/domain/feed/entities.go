@@ -6,16 +6,16 @@ type (
 	// Feed is a value object that tracks channels that a user subbed to
 	// and other settings
 	Feed struct {
-		ID            uint      `json:"id,omitempty"`
-		OwnerUsername string    `json:"ownerUsername"`
-		Sorting       Sorting   `json:"defaultSorting"`
+		ID            uint    `json:"id,omitempty"`
+		OwnerUsername string  `json:"ownerUsername"`
+		Sorting       Sorting `json:"defaultSorting"`
 		//Subscriptions []*Channel `json:"subscriptions"`
 		// hiddenPosts   []Post
 	}
 	// Channel represents a singular stream of posts that a user can subscribe to
 	// under administration by certain users.
 	Channel struct {
-		Username         string    `json:"username"`
+		Channelname      string    `json:"channelname"`
 		Name             string    `json:"name"`
 		SubscriptionTime time.Time `json:"subscriptionTime"`
 	}

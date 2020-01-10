@@ -28,7 +28,7 @@ type Repository interface {
 	Unsubscribe(f *Feed, channelname string) error
 }
 
-// Sorting enums used by GetPosts methods signifying how retreived posts ares sorted
+// Sorting enums used by GetPosts methods signifying how retrieved posts ares sorted
 type Sorting string
 
 const (
@@ -54,18 +54,18 @@ const (
 	// SortDescending orders in a descending manner
 	SortDescending SortOrder = "DESC"
 
-	// SortBySubscriptionTime orders channels acording to the time the feed subscribed to them
+	// SortBySubscriptionTime orders channels according to the time the feed subscribed to them
 	SortBySubscriptionTime SortBy = "subscription_time"
-	// SortByUsername orders channels acording to their username
+	// SortByUsername orders channels according to their username
 	SortByUsername SortBy = "username"
-	// SortByName orders channels acording to their name
+	// SortByName orders channels according to their name
 	SortByName SortBy = "name"
 )
 
 // ErrFeedNotFound is returned when the requested feed is not found
 var ErrFeedNotFound = fmt.Errorf("feed not found")
 
-// ErrChannelDoesNotExist is returned when the specifed channel does not exist
+// ErrChannelDoesNotExist is returned when the specified channel does not exist
 var ErrChannelDoesNotExist = fmt.Errorf("channel does not exist found")
 
 //var UserDoesNotExist = fmt.Errorf("user does not exist found")
@@ -89,7 +89,7 @@ func (s service) GetFeed(username string) (*Feed, error) {
 	/*if s.userService == nil {
 		temp, ok := (*s.allServices)["User"]
 		if !ok {
-			return  nil, fmt.Errorf("user service not availaible")
+			return  nil, fmt.Errorf("user service not available")
 		}
 		s.userService = temp.(*user.Service)
 	}

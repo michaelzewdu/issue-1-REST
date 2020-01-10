@@ -2,134 +2,109 @@ package rest
 
 import (
 	"encoding/json"
-	"github.com/codegangsta/negroni"
+	"fmt"
+	"github.com/microcosm-cc/bluemonday"
+	"io"
+	"io/ioutil"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/gorilla/mux"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
+	uuid "github.com/satori/go.uuid"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
-	"net/http"
 )
 
+/*
 // Logger ...
 type Logger interface {
 	Log(format string, a ...interface{})
 }
-
-type Enviroment struct {
+*/
+// Setup is used to inject dependencies and other required data used by the handlers.
+type Setup struct {
 	Config
 	Dependencies
 }
 
+// Dependencies contains dependencies used by the handlers.
 type Dependencies struct {
-	UserService    user.Service
-	FeedService    feed.Service
-	ReleaseService release.Service
-	ChannelService channel.Service
-	Logger         Logger
+	StrictSanitizer *bluemonday.Policy
+	MarkupSanitizer *bluemonday.Policy
+	UserService     user.Service
+	FeedService     feed.Service
+	ReleaseService  release.Service
+	jwtBackend      *JWTAuthenticationBackend
+	Logger          *log.Logger
 }
+
+// Config contains the different settings used to set up the handlers
 type Config struct {
 	ImageServingRoute, ImageStoragePath, HostAddress, Port string
+	TokenAccessLifetime, TokenRefreshLifetime              time.Duration
+	TokenSigningSecret                                     []byte
 }
 
-// NewMux ...
-func NewMux(setup *Enviroment) *mux.Router {
-
+// NewMux returns a new multiplexer with all the used setup.
+func NewMux(s *Setup) *mux.Router {
 	mainRouter := mux.NewRouter().StrictSlash(true)
 	secureRouter := mainRouter.NewRoute().Subrouter()
 
-	mainRouter.PathPrefix(setup.ImageServingRoute).Handler(
-		http.StripPrefix(setup.ImageServingRoute, http.FileServer(http.Dir(setup.ImageStoragePath))),
-	)
+	// setup static file server
+	mainRouter.PathPrefix(s.ImageServingRoute).Handler(
+		http.StripPrefix(s.ImageServingRoute, http.FileServer(http.Dir(s.ImageStoragePath))))
 
-	attachUserRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
-	//attachChannelRoutesToRouters(mainRouter, secureRouter, setup, &setup.Logger)
-	attachReleaseRoutesToRouters(mainRouter, secureRouter, setup)
+	// setup security
+	s.jwtBackend = NewJWTAuthenticationBackend(s)
+	mainRouter.Use(ExtractAuthTokenMiddleware(s))
+	secureRouter.Use(CheckForAuthMiddleware(s))
 
-	feedService := &setup.FeedService
-	//TODO secure these routes
-	secureRouter.HandleFunc("/users/{username}/feed", getFeed(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/posts", getFeedPosts(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/channels", getFeedChannels(feedService, &setup.Logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/feed/channels", postFeedChannel(feedService, &setup.Logger)).Methods("POST")
-	secureRouter.HandleFunc("/users/{username}/feed", putFeed(feedService, &setup.Logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(feedService, &setup.Logger)).Methods("DELETE")
+	// attach routes
+	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
+	attachUserRoutesToRouters(mainRouter, secureRouter, s)
+	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
+	attachFeedRoutesToRouters(secureRouter, s)
 
-	mainRouter.HandleFunc("/channels", postChannel(&setup.ChannelService, &setup.Logger)).Methods("POST")
-	mainRouter.HandleFunc("/channels", getChannels(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}", getChannel(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}", putChannel(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}", deleteChannel(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
-	mainRouter.HandleFunc("/channels/{username}/admins", getAdmins(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/admins/{adminUsername}", putAdmin(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}/admins/{adminUsername}", deleteAdmin(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
-	mainRouter.HandleFunc("/channels/{username}/owners", getOwner(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/owners/{ownerUsername}", putOwner(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}/Posts", getPosts(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/Posts/{postID}", getPost(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/catalog", getCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", deleteReleaseFromCatalog(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
-	mainRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", getReleaseFromCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/catalogs", getOfficialCatalog(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}", putReleaseInCatalog(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}/catalogs}", postReleaseInCatalog(&setup.ChannelService, &setup.Logger)).Methods("POST")
-	mainRouter.HandleFunc("/channels/{username}/catalogs/official/{catalogID}", putReleaseInOfficialCatalog(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}/Posts/stickiedPosts", getStickiedPosts(&setup.ChannelService, &setup.Logger)).Methods("GET")
-	mainRouter.HandleFunc("/channels/{username}/Posts/{postID}", stickyPost(&setup.ChannelService, &setup.Logger)).Methods("PUT")
-	mainRouter.HandleFunc("/channels/{username}/Posts/stickiedPosts/{stickiedPostID}", deleteStickiedPost(&setup.ChannelService, &setup.Logger)).Methods("DELETE")
-
-	jwtBackend := NewJWTAuthenticationBackend(&setup.UserService, []byte("secret"), 3600)
-	secureRouter.Use(CheckForAuthenticationMiddleware(jwtBackend, &setup.Logger))
-
-	mainRouter.HandleFunc("/token-auth", postTokenAuth(jwtBackend, &setup.Logger)).Methods("POST")
-	secureRouter.Handle("/token-auth-refresh", negroni.New(negroni.HandlerFunc(getTokenAuthRefresh(jwtBackend, &setup.Logger)))).Methods("GET")
-	secureRouter.Handle("/logout", negroni.New(negroni.HandlerFunc(getLogout(jwtBackend, &setup.Logger)))).Methods("GET")
 	return mainRouter
 }
-
-//func attachChannelRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment, logger *Logger) {
-//	mainRouter.HandleFunc("/channels",postChannel(&setup.ChannelService,logger)).Methods("POST")
-//	mainRouter.HandleFunc("/channels",getChannels(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}",getChannel(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}",putChannel(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}",deleteChannel(&setup.ChannelService,logger)).Methods("DELETE")
-//	secureRouter.HandleFunc("/channels/{username}/admins",getAdmins(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}",putAdmin(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}/admins/{adminUsername}",deleteAdmin(&setup.ChannelService,logger)).Methods("DELETE")
-//	secureRouter.HandleFunc("/channels/{username}/owners",getOwner(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/owners/{ownerUsername}",putOwner(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}/Posts",getPosts(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/Posts/{postIDs}",getPost(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/admins/catalog",getCatalog(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",deleteReleaseFromCatalog(&setup.ChannelService,logger)).Methods("DELETE")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",getReleaseFromCatalog(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs/official",getOfficialCatalog(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",putReleaseInCatalog(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs}",postReleaseInCatalog(&setup.ChannelService,logger)).Methods("POST")
-//	secureRouter.HandleFunc("/channels/{username}/catalogs/{catalogID}",putReleaseInOfficialCatalog(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}/stickiedPosts",getStickiedPosts(&setup.ChannelService,logger)).Methods("GET")
-//	secureRouter.HandleFunc("/channels/{username}/Posts/{postID}",stickyPost(&setup.ChannelService,logger)).Methods("PUT")
-//	secureRouter.HandleFunc("/channels/{username}/stickiedPosts{stickiedPostID}",deleteStickiedPost(&setup.ChannelService,logger)).Methods("GET")
-//
-//
-//
-//
-//}
-
-func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment, logger *Logger) {
-	mainRouter.HandleFunc("/users", getUsers(&setup.UserService, logger)).Methods("GET")
-	mainRouter.HandleFunc("/users", postUser(&setup.UserService, logger)).Methods("POST")
-	//TODO secure these routes
-	secureRouter.HandleFunc("/users/{username}", getUser(&setup.UserService, logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}", putUser(&setup.UserService, logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}", deleteUser(&setup.UserService, logger)).Methods("DELETE")
-	secureRouter.HandleFunc("/users/{username}/bookmarks", getUserBookmarks(&setup.UserService, logger)).Methods("GET")
-	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", putUserBookmarks(&setup.UserService, logger)).Methods("PUT")
-	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", deleteUserBookmarks(&setup.UserService, logger)).Methods("DELETE")
-	secureRouter.HandleFunc("/users/{username}/bookmarks", postUserBookmarks(&setup.UserService, logger)).Methods("POST")
+func attachAuthRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/token-auth", postTokenAuth(setup)).Methods("POST")
+	secureRouter.HandleFunc("/token-auth-refresh", getTokenAuthRefresh(setup)).Methods("GET")
+	secureRouter.HandleFunc("/logout", getLogout(setup)).Methods("GET")
 }
 
-func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Enviroment) {
+func attachFeedRoutesToRouters(secureRouter *mux.Router, setup *Setup) {
+	//TODO secure these routes
+	secureRouter.HandleFunc("/users/{username}/feed", getFeed(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/posts", getFeedPosts(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/channels", getFeedChannels(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/feed/channels", postFeedChannel(setup)).Methods("POST")
+	secureRouter.HandleFunc("/users/{username}/feed", putFeed(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(setup)).Methods("DELETE")
+
+}
+
+func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/users", getUsers(setup)).Methods("GET")
+	mainRouter.HandleFunc("/users", postUser(setup)).Methods("POST")
+	//TODO secure these routes
+	secureRouter.HandleFunc("/users/{username}", getUser(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}", putUser(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}", deleteUser(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/users/{username}/bookmarks", getUserBookmarks(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", putUserBookmarks(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/bookmarks/{postID}", deleteUserBookmarks(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/users/{username}/bookmarks", postUserBookmarks(setup)).Methods("POST")
+	secureRouter.HandleFunc("/users/{username}/picture", getUserPicture(setup)).Methods("GET")
+	secureRouter.HandleFunc("/users/{username}/picture", putUserPicture(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/users/{username}/picture", deleteUserPicture(setup)).Methods("DELETE")
+}
+
+func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/releases", getReleases(setup)).Methods("GET")
 	mainRouter.HandleFunc("/releases", postReleases(setup)).Methods("POST")
 	//TODO secure these routes
@@ -139,8 +114,13 @@ func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *E
 }
 
 type jSendResponse struct {
-	Status string      `json:"status"`
-	Data   interface{} `json:"data"`
+	Status  string      `json:"status"`
+	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message,omitempty"`
+}
+type jSendFailData struct {
+	ErrorReason  string `json:"errorReason"`
+	ErrorMessage string `json:"errorMessage"`
 }
 
 // writeResponseToWriter is a helper function.
@@ -153,4 +133,70 @@ func writeResponseToWriter(response jSendResponse, w http.ResponseWriter, status
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+}
+
+var errUnacceptedType = fmt.Errorf("file mime type not accepted")
+var errReadingFromImage = fmt.Errorf("err reading image file from request")
+
+func saveImageFromRequest(r *http.Request, fileName string) (*os.File, string, error) {
+	file, header, err := r.FormFile(fileName)
+	if err != nil {
+		return nil, "", errReadingFromImage
+	}
+	defer file.Close()
+	err = checkIfFileIsAcceptedType(file)
+	if err != nil {
+		return nil, "", err
+	}
+	newFile, err := ioutil.TempFile("", "tempIMG*.jpg")
+	if err != nil {
+		return nil, "", err
+	}
+	_, err = io.Copy(newFile, file)
+	if err != nil {
+		return nil, "", err
+	}
+	return newFile, header.Filename, nil
+}
+
+func generateFileNameForStorage(fileName, prefix string) string {
+	v4uuid, _ := uuid.NewV4()
+	return prefix + "." + v4uuid.String() + "." + fileName
+}
+
+func checkIfFileIsAcceptedType(file multipart.File) error { // this block checks if image is of accepted types
+	acceptedTypes := map[string]struct{}{
+		"image/jpeg": {},
+		"image/png":  {},
+	}
+	tempBuffer := make([]byte, 512)
+	_, err := file.ReadAt(tempBuffer, 0)
+	if err != nil {
+		return errReadingFromImage
+	}
+	contentType := http.DetectContentType(tempBuffer)
+	if _, ok := acceptedTypes[contentType]; !ok {
+		return errUnacceptedType
+	}
+	return err
+}
+
+func saveTempFilePermanentlyToPath(tmpFile *os.File, path string) error {
+	newFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer newFile.Close()
+
+	_, err = tmpFile.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(newFile, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
