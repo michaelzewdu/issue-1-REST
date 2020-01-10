@@ -97,6 +97,19 @@ func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setu
 	secureRouter.HandleFunc("/users/{username}/picture", putUserPicture(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/users/{username}/picture", deleteUserPicture(setup)).Methods("DELETE")
 }
+func attachCommentRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/posts/{postID}/comments/{commentID}", getComment(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{postID}/comments?sort=time", getComments(setup)).Methods("GET")
+	//TODO secure these routes
+	secureRouter.HandleFunc("/posts/{postID}/comments", postComment(setup)).Methods("POST")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", updateComment(setup)).Methods("PATCH")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", deleteComment(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", getReply(setup)).Methods("GET")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/?sort=time", getReplys(setup)).Methods("GET")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies", postReply(setup)).Methods("POST")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", updateReply(setup)).Methods("PATCH")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", deleteReply(setup)).Methods("DELETE")
+}
 
 func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/releases", getReleases(setup)).Methods("GET")

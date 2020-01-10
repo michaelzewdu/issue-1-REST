@@ -6,8 +6,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
-	"golang.org/x/tools/go/analysis/passes/cgocall/testdata/src/c"
 	"net/http"
 	"strconv"
 )
