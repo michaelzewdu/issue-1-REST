@@ -28,4 +28,54 @@ type Repository interface {
 	DeleteReply(id int) error
 }
 
+// ErrCommentNotFound is returned when the requested comment is not found
 var ErrCommentNotFound = fmt.Errorf("comment not found")
+
+type service struct {
+	repo *Repository
+}
+
+//todo
+
+// SortOrder holds enums used by SearchPost methods the order of Users are sorted with
+//type SortOrder string
+
+// SortBy  holds enums used by SearchPost methods the attribute of Users are sorted with
+//type SortBy string
+
+func (s service) GetComment(id int) (*Comment, error) {
+	return (*s.repo).GetComment(id)
+}
+
+func (s service) AddComment(comment *Comment) error {
+	return (*s.repo).AddComment(comment)
+}
+
+func (s service) UpdateComment(comment *Comment, id int) error {
+	return (*s.repo).UpdateComment(comment, id)
+}
+
+func (s service) DeleteComment(id int) error {
+	return (*s.repo).DeleteComment(id)
+}
+
+func (s service) GetReply(id int) (*Comment, error) {
+	return (*s.repo).GetReply(id)
+}
+
+func (s service) AddReply(comment *Comment) error {
+	return (*s.repo).AddReply(comment)
+}
+
+func (s service) UpdateReply(comment *Comment, id int) error {
+	return (*s.repo).UpdateReply(comment, id)
+}
+
+func (s service) DeleteReply(id int) error {
+	return (*s.repo).DeleteReply(id)
+}
+
+// NewService returns a struct that implements the release.Release interface
+func NewService(repo *Repository) Service {
+	return &service{repo: repo}
+}
