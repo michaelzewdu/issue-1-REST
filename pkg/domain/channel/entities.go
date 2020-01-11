@@ -5,9 +5,10 @@ import "time"
 // Channel represents a singular stream of posts that a user can subscribe to
 // under adminstration by certain users.
 type Channel struct {
-	Username           string    `json:"username"`
+	ChannelUsername    string    `json:"channelUsername"`
 	Name               string    `json:"name,omitempty"`
 	Description        string    `json:"description,omitempty"`
+	PictureURL         string    `json:"pictureURL"`
 	OwnerUsername      string    `json:"ownerUsername,omitempty"`
 	AdminUsernames     []string  `json:"adminUsernames,omitempty"`
 	PostIDs            []int     `json:"postIDs,omitempty"`
