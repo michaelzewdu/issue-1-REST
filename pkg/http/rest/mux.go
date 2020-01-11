@@ -63,7 +63,7 @@ func NewMux(s *Setup) *mux.Router {
 
 	// setup security
 	s.jwtBackend = NewJWTAuthenticationBackend(s)
-	mainRouter.Use(ExtractAuthTokenMiddleware(s))
+	mainRouter.Use(ParseAuthTokenMiddleware(s))
 	secureRouter.Use(CheckForAuthMiddleware(s))
 
 	// attach routes
@@ -76,7 +76,7 @@ func NewMux(s *Setup) *mux.Router {
 }
 func attachAuthRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/token-auth", postTokenAuth(setup)).Methods("POST")
-	secureRouter.HandleFunc("/token-auth-refresh", getTokenAuthRefresh(setup)).Methods("GET")
+	mainRouter.HandleFunc("/token-auth-refresh", getTokenAuthRefresh(setup)).Methods("GET")
 	secureRouter.HandleFunc("/logout", getLogout(setup)).Methods("GET")
 }
 

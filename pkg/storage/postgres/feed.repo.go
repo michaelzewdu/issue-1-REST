@@ -226,7 +226,6 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 
 // UpdateFeed updates the feed entity under the given id based on the passed in feed.Feed struct.
 func (repo *feedRepository) UpdateFeed(id uint, f *feed.Feed) error {
-	var err error
 	var sorting string
 	switch f.Sorting {
 	case feed.SortHot:
@@ -236,14 +235,19 @@ func (repo *feedRepository) UpdateFeed(id uint, f *feed.Feed) error {
 	default:
 		sorting = "top"
 	}
-	if f.OwnerUsername != "" {
-		err = repo.execUpdateStatementOnColumn("owner_username", f.OwnerUsername, id)
-		if err != nil {
-			return err
+	/*
+		if f.OwnerUsername != "" {
+			err = repo.execUpdateStatementOnColumn("owner_username", f.OwnerUsername, id)
+			if err != nil {
+				return err
+			}
+			// change username for subsequent calls if username changed
 		}
-		// change username for subsequent calls if username changed
+	*/
+	err := repo.execUpdateStatementOnColumn("sorting", sorting, id)
+	if err != nil {
+		return err
 	}
-	err = repo.execUpdateStatementOnColumn("sorting", sorting, id)
 	return nil
 }
 
@@ -254,7 +258,7 @@ func (repo *feedRepository) execUpdateStatementOnColumn(column, value string, id
 			SET %s = $1 
 			WHERE id = $2`, column), value, id)
 	if err != nil {
-		return fmt.Errorf("updating failed of %s column with %s because of: %s", column, value, err.Error())
+		return fmt.Errorf("updating failed of %s column with %s because of: %w", column, value, err)
 	}
 	return nil
 }
@@ -263,12 +267,14 @@ func (repo *feedRepository) execUpdateStatementOnColumn(column, value string, id
 func (repo *feedRepository) Subscribe(f *feed.Feed, channelname string) error {
 	_, err := repo.db.Exec(`
 		INSERT INTO feed_subscriptions (feed_id,channel_username)
-		VALUES ($1, $2)`, f.ID, channelname)
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+		`, f.ID, channelname)
 	const foreignKeyViolationErrorCode = pq.ErrorCode("23503")
 	if err != nil {
 		if pgErr, isPGErr := err.(pq.Error); !isPGErr {
 			if pgErr.Code != foreignKeyViolationErrorCode {
-				return feed.ErrChannelDoesNotExist
+				return feed.ErrChannelNotFound
 			}
 			return fmt.Errorf("insertion of user failed because of: %s", err.Error())
 		}
