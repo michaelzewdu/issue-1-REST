@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/microcosm-cc/bluemonday"
 
-	"github.com/codegangsta/negroni"
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
@@ -20,11 +21,12 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
 
+/*
 // Logger ...
 type Logger interface {
 	Log(format string, a ...interface{})
 }
-
+*/
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
@@ -40,29 +42,38 @@ type Dependencies struct {
 	ReleaseService  release.Service
 	PostService     post.Service
 	jwtBackend      *JWTAuthenticationBackend
-	Logger          Logger
+	Logger          *log.Logger
 }
 
 // Config contains the different settings used to set up the handlers
 type Config struct {
 	ImageServingRoute, ImageStoragePath, HostAddress, Port string
+	TokenAccessLifetime, TokenRefreshLifetime              time.Duration
+	TokenSigningSecret                                     []byte
 }
 
 // NewMux returns a new multiplexer with all the used setup.
 func NewMux(s *Setup) *mux.Router {
-
 	mainRouter := mux.NewRouter().StrictSlash(true)
 	secureRouter := mainRouter.NewRoute().Subrouter()
 
+	// setup static file server
 	mainRouter.PathPrefix(s.ImageServingRoute).Handler(
 		http.StripPrefix(s.ImageServingRoute, http.FileServer(http.Dir(s.ImageStoragePath))))
 
+	// setup security
+	s.jwtBackend = NewJWTAuthenticationBackend(s)
+	mainRouter.Use(ExtractAuthTokenMiddleware(s))
+	secureRouter.Use(CheckForAuthMiddleware(s))
+
+	// attach routes
+	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
 	attachUserRoutesToRouters(mainRouter, secureRouter, s)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachPostRoutesToRouters(mainRouter,secureRouter,s)
-	s.jwtBackend = NewJWTAuthenticationBackend(&s.UserService, []byte("secret"), 3600)
-	secureRouter.Use(CheckForAuthenticationMiddleware(s))
+	s.jwtBackend = NewJWTAuthenticationBackend(s)
+	secureRouter.Use(CheckForAuthMiddleware(s))
 
 	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
 
@@ -70,8 +81,8 @@ func NewMux(s *Setup) *mux.Router {
 }
 func attachAuthRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/token-auth", postTokenAuth(setup)).Methods("POST")
-	secureRouter.Handle("/token-auth-refresh", negroni.New(negroni.HandlerFunc(getTokenAuthRefresh(setup)))).Methods("GET")
-	secureRouter.Handle("/logout", negroni.New(negroni.HandlerFunc(getLogout(setup)))).Methods("GET")
+	secureRouter.HandleFunc("/token-auth-refresh", getTokenAuthRefresh(setup)).Methods("GET")
+	secureRouter.HandleFunc("/logout", getLogout(setup)).Methods("GET")
 }
 
 func attachFeedRoutesToRouters(secureRouter *mux.Router, setup *Setup) {

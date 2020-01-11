@@ -15,6 +15,7 @@ import (
 
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"time"
 
@@ -47,7 +48,7 @@ func NewPostgresHandler() postgres.DBHandler {
 	defer db.Close()
 }
 */
-
+/*
 type logger struct{}
 
 // Log ...
@@ -58,12 +59,11 @@ func (logger *logger) Log(format string, a ...interface{}) {
 		fmt.Printf("[%s] %s\n", time.Now().Format(time.StampMilli), format)
 	}
 }
+*/
 
 func main() {
 	setup := rest.Setup{}
-	setup.Logger = &logger{}
-
-	//logger := log.New(os.Stdout, "",log.Ltime)
+	setup.Logger = log.New(os.Stdout, "", log.Lmicroseconds|log.Lshortfile)
 	var db *sql.DB
 	{
 		var err error
@@ -80,13 +80,13 @@ func main() {
 		db, err = sql.Open(
 			"postgres", dataSourceName)
 		if err != nil {
-			setup.Logger.Log("database connection failed because: %s", err.Error())
+			setup.Logger.Printf("database connection failed because: %s", err.Error())
 			return
 		}
 		defer db.Close()
 
 		if err = db.Ping(); err != nil {
-			setup.Logger.Log("database ping failed because: %s", err.Error())
+			setup.Logger.Printf("database ping failed because: %s", err.Error())
 			return
 		}
 	}
@@ -130,8 +130,8 @@ func main() {
 
 	setup.ImageServingRoute = "/images/"
 	setup.ImageStoragePath = "data/images/"
-	setup.Port = "8080"
 	setup.HostAddress = "http://localhost"
+	setup.Port = "8080"
 
 	setup.HostAddress += ":" + setup.Port
 
@@ -139,7 +139,12 @@ func main() {
 	setup.MarkupSanitizer = bluemonday.UGCPolicy()
 	setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
 
+	setup.TokenSigningSecret = []byte("secret")
+	setup.TokenAccessLifetime = 15 * time.Minute
+	setup.TokenRefreshLifetime = 7 * 24 * time.Hour
+
 	mux := rest.NewMux(&setup)
-	setup.Logger.Log("starting up server...")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+
+	setup.Logger.Printf("server running...")
+	log.Fatal(http.ListenAndServe(":"+setup.Port, mux))
 }

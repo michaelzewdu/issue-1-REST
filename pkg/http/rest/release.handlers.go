@@ -44,7 +44,7 @@ func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						ErrorMessage: "OwnerChannel is required",
 					}
 					// if required fields aren't present
-					d.Logger.Log("bad add release request")
+					d.Logger.Printf("bad add release request")
 					statusCode = http.StatusBadRequest
 				} else {
 					{
@@ -63,7 +63,7 @@ func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						case nil:
 							defer tmpFile.Close()
 							defer os.Remove(tmpFile.Name())
-							d.Logger.Log(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
+							d.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
 							newRelease.Content = generateFileNameForStorage(fileName, "release")
 						case errUnacceptedType:
 							response.Data = jSendFailData{
@@ -92,7 +92,7 @@ func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				if response.Data == nil {
-					d.Logger.Log("trying to add release")
+					d.Logger.Printf("trying to add release")
 
 					newRelease, err := d.ReleaseService.AddRelease(newRelease)
 					switch err {
@@ -100,7 +100,7 @@ func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						if newRelease.Type == release.Image {
 							err := saveTempFilePermanentlyToPath(tmpFile, d.ImageStoragePath+newRelease.Content)
 							if err != nil {
-								d.Logger.Log("adding of release failed because: %v", err)
+								d.Logger.Printf("adding of release failed because: %v", err)
 								response.Status = "error"
 								response.Message = "server error when adding release"
 								statusCode = http.StatusInternalServerError
@@ -114,13 +114,13 @@ func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 							response.Status = "success"
 							newRelease.Content = d.HostAddress + d.ImageServingRoute + url.PathEscape(newRelease.Content)
 							response.Data = *newRelease
-							d.Logger.Log("success adding release %d to channel %s", newRelease.ID, newRelease.OwnerChannel)
+							d.Logger.Printf("success adding release %d to channel %s", newRelease.ID, newRelease.OwnerChannel)
 						}
 					case release.ErrSomeReleaseDataNotPersisted:
 						fallthrough
 					default:
 						_ = d.ReleaseService.DeleteRelease(newRelease.ID)
-						d.Logger.Log("adding of release failed because: %v", err)
+						d.Logger.Printf("adding of release failed because: %v", err)
 						response.Status = "error"
 						response.Message = "server error when adding release"
 						statusCode = http.StatusInternalServerError
@@ -143,7 +143,7 @@ func getRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			d.Logger.Log("fetch attempt of non invalid release id %s", idRaw)
+			d.Logger.Printf("fetch attempt of non invalid release id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "releaseID",
 				ErrorMessage: fmt.Sprintf("invalid releaseID %d", id),
@@ -152,7 +152,7 @@ func getRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if response.Data == nil {
-			d.Logger.Log("trying to fetch release %d", id)
+			d.Logger.Printf("trying to fetch release %d", id)
 			rel, err := d.ReleaseService.GetRelease(id)
 			switch err {
 			case nil:
@@ -169,7 +169,7 @@ func getRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 				//	}
 				//}
 				response.Data = *rel
-				d.Logger.Log("success fetching release %d", id)
+				d.Logger.Printf("success fetching release %d", id)
 			case release.ErrReleaseNotFound:
 				response.Data = jSendFailData{
 					ErrorReason:  "releaseID",
@@ -177,7 +177,7 @@ func getRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 				}
 				statusCode = http.StatusNotFound
 			default:
-				d.Logger.Log("fetching of release failed because: %v", err)
+				d.Logger.Printf("fetching of release failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when fetching release"
 				statusCode = http.StatusInternalServerError
@@ -208,7 +208,7 @@ func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
-					d.Logger.Log("bad get releases request, limit")
+					d.Logger.Printf("bad get releases request, limit")
 					response.Data = jSendFailData{
 						ErrorReason:  "limit",
 						ErrorMessage: "bad request, limit can't be negative",
@@ -219,7 +219,7 @@ func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if offsetRaw := r.URL.Query().Get("offset"); offsetRaw != "" {
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
-					d.Logger.Log("bad request, offset")
+					d.Logger.Printf("bad request, offset")
 					response.Data = jSendFailData{
 						ErrorReason:  "offset",
 						ErrorMessage: "bad request, offset can't be negative",
@@ -255,7 +255,7 @@ func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		if response.Data == nil {
 			releases, err := d.ReleaseService.SearchRelease(pattern, sortBy, sortOrder, limit, offset)
 			if err != nil {
-				d.Logger.Log("fetching of releases failed because: %v", err)
+				d.Logger.Printf("fetching of releases failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when getting releases"
 				statusCode = http.StatusInternalServerError
@@ -267,7 +267,7 @@ func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				response.Data = releases
-				d.Logger.Log("success fetching releases")
+				d.Logger.Printf("success fetching releases")
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -285,7 +285,7 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			d.Logger.Log("put attempt of non invalid release id %s", idRaw)
+			d.Logger.Printf("put attempt of non invalid release id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "releaseID",
 				ErrorMessage: fmt.Sprintf("invalid releaseID %d", id),
@@ -319,10 +319,10 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						tmpFile, fileName, err = saveImageFromRequest(r, "image")
 						switch err {
 						case nil:
-							d.Logger.Log("image found on put request")
+							d.Logger.Printf("image found on put request")
 							defer os.Remove(tmpFile.Name())
 							defer tmpFile.Close()
-							d.Logger.Log(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
+							d.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
 							rel.Content = generateFileNameForStorage(fileName, "release")
 							rel.Type = release.Image
 						case errUnacceptedType:
@@ -332,7 +332,7 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 							}
 							statusCode = http.StatusBadRequest
 						case errReadingFromImage:
-							d.Logger.Log("image not found on put request")
+							d.Logger.Printf("image not found on put request")
 							if rel.Type == release.Image {
 								response.Data = jSendFailData{
 									ErrorReason:  "image",
@@ -377,7 +377,7 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						if rel.Type == release.Image {
 							err := saveTempFilePermanentlyToPath(tmpFile, d.ImageStoragePath+rel.Content)
 							if err != nil {
-								d.Logger.Log("updating of release failed because: %v", err)
+								d.Logger.Printf("updating of release failed because: %v", err)
 								response.Status = "error"
 								response.Message = "server error when updating release"
 								statusCode = http.StatusInternalServerError
@@ -385,21 +385,21 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						if response.Message == "" {
-							d.Logger.Log("success updating release %d", id)
+							d.Logger.Printf("success updating release %d", id)
 							response.Status = "success"
 							rel.Content = d.HostAddress + d.ImageServingRoute + url.PathEscape(rel.Content)
 							response.Data = *rel
 							// TODO delete old image if image updated
 						}
 					case release.ErrAttemptToChangeReleaseType:
-						d.Logger.Log("update attempt of release type for release %d", id)
+						d.Logger.Printf("update attempt of release type for release %d", id)
 						response.Data = jSendFailData{
 							ErrorReason:  "type",
 							ErrorMessage: "release type cannot be changed",
 						}
 						statusCode = http.StatusNotFound
 					case release.ErrReleaseNotFound:
-						d.Logger.Log("update attempt of non existing release %d", id)
+						d.Logger.Printf("update attempt of non existing release %d", id)
 						response.Data = jSendFailData{
 							ErrorReason:  "releaseID",
 							ErrorMessage: fmt.Sprintf("release of id %d not found", id),
@@ -409,7 +409,7 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						_ = d.ReleaseService.DeleteRelease(rel.ID)
 						fallthrough
 					default:
-						d.Logger.Log("update of release failed because: %v", err)
+						d.Logger.Printf("update of release failed because: %v", err)
 						response.Status = "error"
 						response.Message = "server error when adding release"
 						statusCode = http.StatusInternalServerError
@@ -433,7 +433,7 @@ func deleteRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			s.Logger.Log("delete attempt of non invalid release id %s", idRaw)
+			s.Logger.Printf("delete attempt of non invalid release id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "releaseID",
 				ErrorMessage: fmt.Sprintf("invalid releaseID %d", id),
@@ -449,14 +449,14 @@ func deleteRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			//	}
 			//}
 			// TODO delete image if image type
-			s.Logger.Log("trying to delete release %d", id)
+			s.Logger.Printf("trying to delete release %d", id)
 			err := s.ReleaseService.DeleteRelease(id)
 			switch err {
 			case nil:
 				response.Status = "success"
-				s.Logger.Log("success deleting release %d", id)
+				s.Logger.Printf("success deleting release %d", id)
 			case release.ErrReleaseNotFound:
-				s.Logger.Log("deletion of release failed because: %v", err)
+				s.Logger.Printf("deletion of release failed because: %v", err)
 				response.Data = jSendFailData{
 					ErrorReason:  "releaseID",
 					ErrorMessage: fmt.Sprintf("release of id %d not found", id),
@@ -464,7 +464,7 @@ func deleteRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				statusCode = http.StatusNotFound
 				statusCode = http.StatusNotFound
 			default:
-				s.Logger.Log("deletion of release failed because: %v", err)
+				s.Logger.Printf("deletion of release failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when adding release"
 				statusCode = http.StatusInternalServerError

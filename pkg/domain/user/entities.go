@@ -14,7 +14,7 @@ type User struct {
 	LastName        string            `json:"lastName"`
 	CreationTime    time.Time         `json:"creationTime"`
 	Bio             string            `json:"bio"`
-	BookmarkedPosts map[int]time.Time `json:"bookmarkedPosts"`
+	BookmarkedPosts map[time.Time]int `json:"-"`
 	Password        string            `json:"password,omitempty"`
 	PictureURL      string            `json:"pictureURL"`
 }

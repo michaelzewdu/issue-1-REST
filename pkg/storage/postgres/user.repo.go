@@ -34,6 +34,8 @@ func (repo *userRepository) AddUser(u *user.User) (*user.User, error) {
 	// set the username to zero to avoid call to UpdateUser won't do redundant updating of username
 	username := u.Username
 	u.Username = ""
+	u.Email = ""
+	u.Password = ""
 
 	// using UpdateUser to set the rest of the values so that null values will be preserved
 	// (instead of columns with go's zero value of "")
@@ -64,13 +66,9 @@ func (repo *userRepository) GetUser(username string) (*user.User, error) {
 }
 
 // getBookmarkedPosts is just a helper function
-func (repo *userRepository) getBookmarkedPosts(username string) (map[int]time.Time, error) {
+func (repo *userRepository) getBookmarkedPosts(username string) (map[time.Time]int, error) {
 	// TODO test this method
-	var bookmarkedPosts = make(map[int]time.Time, 0)
-	var (
-		postID             int
-		creationTimeString string
-	)
+	var bookmarkedPosts = make(map[time.Time]int, 0)
 
 	rows, err := repo.db.Query(`SELECT post_id, creation_time
 								FROM "issue#1".user_bookmarks 
@@ -81,12 +79,15 @@ func (repo *userRepository) getBookmarkedPosts(username string) (map[int]time.Ti
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&postID, &creationTimeString)
+		var (
+			postID       int
+			creationTime time.Time
+		)
+		err := rows.Scan(&postID, &creationTime)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
-		creationTime, err := time.Parse(time.RFC3339, creationTimeString)
-		bookmarkedPosts[postID] = creationTime
+		bookmarkedPosts[creationTime] = postID
 	}
 	err = rows.Err()
 	if err != nil {

@@ -23,28 +23,28 @@ func getFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
 
-		s.Logger.Log("trying to fetch feed %s", username)
+		s.Logger.Printf("trying to fetch feed %s", username)
 		f, err := s.FeedService.GetFeed(username)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = *f
-			s.Logger.Log("success fetching feed of %s", username)
+			s.Logger.Printf("success fetching feed of %s", username)
 		case feed.ErrFeedNotFound:
-			s.Logger.Log("fetching of feed failed because: %v", err)
+			s.Logger.Printf("fetching of feed failed because: %v", err)
 			response.Data = jSendFailData{
 				ErrorReason:  "username",
 				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
 			statusCode = http.StatusNotFound
 		default:
-			s.Logger.Log("getting feed failed because: %v", err)
+			s.Logger.Printf("getting feed failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when getting feed"
 			statusCode = http.StatusNotFound
@@ -66,13 +66,13 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
 
-		s.Logger.Log("trying to fetch posts for feed")
+		s.Logger.Printf("trying to fetch posts for feed")
 
 		f := feed.Feed{OwnerUsername: username}
 
@@ -93,7 +93,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
-					s.Logger.Log("bad get feed request, limit")
+					s.Logger.Printf("bad get feed request, limit")
 					response.Data = jSendFailData{
 						ErrorReason:  "limit",
 						ErrorMessage: "bad request, limit can't be negative",
@@ -104,7 +104,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if offsetRaw := r.URL.Query().Get("offset"); offsetRaw != "" {
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
-					s.Logger.Log("bad request, offset")
+					s.Logger.Printf("bad request, offset")
 					response.Data = jSendFailData{
 						ErrorReason:  "offset",
 						ErrorMessage: "bad request, offset can't be negative",
@@ -120,17 +120,17 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			case nil:
 				response.Status = "success"
 				response.Data = posts
-				s.Logger.Log("success fetching posts for feed")
+				s.Logger.Printf("success fetching posts for feed")
 				// TODO deliver actual posts from post service
 			case feed.ErrFeedNotFound:
-				s.Logger.Log("fetching of feed failed because: %v", err)
+				s.Logger.Printf("fetching of feed failed because: %v", err)
 				response.Data = jSendFailData{
 					ErrorReason:  "username",
 					ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 				}
 				statusCode = http.StatusNotFound
 			default:
-				s.Logger.Log("fetching of posts from feed failed because: %v", err)
+				s.Logger.Printf("fetching of posts from feed failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when getting posts"
 				statusCode = http.StatusNotFound
@@ -154,7 +154,7 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -196,16 +196,16 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		case nil:
 			response.Status = "success"
 			response.Data = channels
-			s.Logger.Log("success fetching channels of feed")
+			s.Logger.Printf("success fetching channels of feed")
 		case feed.ErrFeedNotFound:
-			s.Logger.Log("fetching of feed failed because: %v", err)
+			s.Logger.Printf("fetching of feed failed because: %v", err)
 			response.Data = jSendFailData{
 				ErrorReason:  "username",
 				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
 			statusCode = http.StatusNotFound
 		default:
-			s.Logger.Log("fetching of channels of feed failed because: %v", err)
+			s.Logger.Printf("fetching of channels of feed failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when getting channels"
 			statusCode = http.StatusNotFound
@@ -225,7 +225,7 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -241,7 +241,7 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					ErrorMessage: `bad request, use format
 										{"channelname":"username"}`,
 				}
-				s.Logger.Log("bad subscribe channel request")
+				s.Logger.Printf("bad subscribe channel request")
 				statusCode = http.StatusBadRequest
 			}
 		}
@@ -258,23 +258,23 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				switch err {
 				case nil:
 					response.Status = "success"
-					s.Logger.Log("success subscribing feed to channel")
+					s.Logger.Printf("success subscribing feed to channel")
 				case feed.ErrFeedNotFound:
-					s.Logger.Log("fetching of feed failed because: %v", err)
+					s.Logger.Printf("fetching of feed failed because: %v", err)
 					response.Data = jSendFailData{
 						ErrorReason:  "username",
 						ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 					}
 					statusCode = http.StatusNotFound
 				case feed.ErrChannelDoesNotExist:
-					s.Logger.Log("fetching of feed failed because: %v", err)
+					s.Logger.Printf("fetching of feed failed because: %v", err)
 					response.Data = jSendFailData{
 						ErrorReason:  "channelname",
 						ErrorMessage: fmt.Sprintf("channel of channelname %s not found", c.Channelname),
 					}
 					statusCode = http.StatusNotFound
 				default:
-					s.Logger.Log("subscribing feed to channel failed because: %v", err)
+					s.Logger.Printf("subscribing feed to channel failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when subscribing to channel"
 					statusCode = http.StatusNotFound
@@ -296,7 +296,7 @@ func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -310,7 +310,7 @@ func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				ErrorReason:  "request format",
 				ErrorMessage: `bad request, use format {"defaultSorting":"hot"}`,
 			}
-			s.Logger.Log("bad update feed request")
+			s.Logger.Printf("bad update feed request")
 			statusCode = http.StatusBadRequest
 		} else {
 			newFeed := feed.Feed{}
@@ -332,38 +332,38 @@ func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				if newFeed.Sorting == oldFeed.Sorting && newFeed.OwnerUsername == oldFeed.OwnerUsername {
 					response.Status = "success"
 				} else {
-					s.Logger.Log("trying to update feed of user %s", username)
+					s.Logger.Printf("trying to update feed of user %s", username)
 					if newFeed.OwnerUsername == "" {
 						newFeed.OwnerUsername = username
 					}
 					if err = s.FeedService.UpdateFeed(oldFeed.ID, &newFeed); err != nil {
 
-						s.Logger.Log("update of feed failed because: %v", err)
+						s.Logger.Printf("update of feed failed because: %v", err)
 						response.Status = "error"
 						response.Message = "server error when updating feed"
 						statusCode = http.StatusNotFound
 					} else {
-						s.Logger.Log("success updating of feed %s", username)
+						s.Logger.Printf("success updating of feed %s", username)
 						response.Status = "success"
 					}
 				}
 			case feed.ErrFeedNotFound:
 				// if oldFeed not found, create
-				s.Logger.Log("creating new user because username on PUT not recognized: %v", err)
+				s.Logger.Printf("creating new user because username on PUT not recognized: %v", err)
 
 				newFeed.OwnerUsername = username //make sure created user has the new username
 				err := s.FeedService.AddFeed(&newFeed)
 				if err != nil {
-					s.Logger.Log("creation of feed failed because: %v", err)
+					s.Logger.Printf("creation of feed failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when creating Feed"
 					statusCode = http.StatusNotFound
 				} else {
 					response.Status = "success"
 				}
-				s.Logger.Log("success creating feed for user %s", username)
+				s.Logger.Printf("success creating feed for user %s", username)
 			default:
-				s.Logger.Log("updating of feed failed because: %v", err)
+				s.Logger.Printf("updating of feed failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when updating Feed"
 				statusCode = http.StatusNotFound
@@ -385,7 +385,7 @@ func deleteFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		username := vars["username"]
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
-				s.Logger.Log("unauthorized user feed request")
+				s.Logger.Printf("unauthorized user feed request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
@@ -395,16 +395,16 @@ func deleteFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case nil:
 			response.Status = "success"
-			s.Logger.Log("success unsubscription feed from channel")
+			s.Logger.Printf("success unsubscription feed from channel")
 		case feed.ErrFeedNotFound:
-			s.Logger.Log("deletion of feed failed because: %v", err)
+			s.Logger.Printf("deletion of feed failed because: %v", err)
 			response.Data = jSendFailData{
 				ErrorReason:  "username",
 				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 			}
 			statusCode = http.StatusNotFound
 		default:
-			s.Logger.Log("unsubscription of feed from failed because: %v", err)
+			s.Logger.Printf("unsubscription of feed from failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when unsubscription from channel"
 			statusCode = http.StatusNotFound
