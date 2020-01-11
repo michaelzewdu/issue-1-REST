@@ -1,32 +1,50 @@
 /*
-Package comment contains definiton and implemntation of a service that deals with User entities */
+Package comment contains definition and implementation of a service that deals with User entities */
 package comment
 
 import "fmt"
 
-// Service specifies a method to service Release entities.
+// Service specifies a method to service Comment entities.
 type Service interface {
+	AddComment(c *Comment) (*Comment, error)
 	GetComment(id int) (*Comment, error)
-	AddComment(comment *Comment) error
-	UpdateComment(comment *Comment, id int) error
+	GetComments(postID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error)
+	GetReplies(commentID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error)
+	UpdateComment(c *Comment) (*Comment, error)
 	DeleteComment(id int) error
-	GetReply(id int) (*Comment, error)
-	AddReply(comment *Comment) error
-	UpdateReply(comment *Comment, id int) error
-	DeleteReply(id int) error
 }
 
 // Repository specifies a repo interface to serve the Comment Service interface
 type Repository interface {
+	AddComment(c *Comment) (*Comment, error)
 	GetComment(id int) (*Comment, error)
-	AddComment(comment *Comment) error
-	UpdateComment(comment *Comment, id int) error
+	GetComments(postID int, sortBy string, sortOrder string, limit, offset int) ([]*Comment, error)
+	GetReplies(commentID int, by string, order string, limit, offset int) ([]*Comment, error)
+	UpdateComment(c *Comment) (*Comment, error)
 	DeleteComment(id int) error
-	GetReply(id int) (*Comment, error)
-	AddReply(comment *Comment) error
-	UpdateReply(comment *Comment, id int) error
-	DeleteReply(id int) error
 }
+
+// SortOrder holds  that specify how comments are sorted
+type SortOrder string
+
+// SortBy holds enums that specify by what attribute comments are sorted
+type SortBy string
+
+// Sorting constants used by SearchUser methods
+const (
+	SortAscending      SortOrder = "ASC"
+	SortDescending     SortOrder = "DESC"
+	SortByCreationTime SortBy    = "creation_time"
+)
+
+// ErrPostNotFound is returned when the the post ID specified has no post under it
+var ErrPostNotFound = fmt.Errorf("post not found")
+
+// ErrUserNotFound is returned when the the username specified isn't recognized
+var ErrUserNotFound = fmt.Errorf("user not found")
+
+// ErrSomeUserDataNotPersisted is returned when the the username specified isn't recognized
+var ErrSomeCommentDataNotPersisted = fmt.Errorf("was not able to persist some user data")
 
 // ErrCommentNotFound is returned when the requested comment is not found
 var ErrCommentNotFound = fmt.Errorf("comment not found")
@@ -35,53 +53,33 @@ type service struct {
 	repo *Repository
 }
 
-//todo
+func NewService(repo *Repository) Service {
+	return &service{repo: repo}
+}
 
-// SortOrder holds enums used by SearchPost methods the order of Users are sorted with
-//type SortOrder string
-
-// SortBy  holds enums used by SearchPost methods the attribute of Users are sorted with
-//type SortBy string
+func (s service) AddComment(c *Comment) (*Comment, error) {
+	return (*s.repo).AddComment(c)
+}
 
 func (s service) GetComment(id int) (*Comment, error) {
 	return (*s.repo).GetComment(id)
 }
 
-func (s service) AddComment(comment *Comment) error {
-	return (*s.repo).AddComment(comment)
+func (s service) GetComments(postID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error) {
+	return (*s.repo).GetComments(postID, string(by), string(order), limit, offset)
 }
 
-func (s service) UpdateComment(comment *Comment, id int) error {
-	return (*s.repo).UpdateComment(comment, id)
+func (s service) GetReplies(commentID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error) {
+	return (*s.repo).GetReplies(commentID, string(by), string(order), limit, offset)
+}
+
+func (s service) UpdateComment(c *Comment) (*Comment, error) {
+	if _, err := (*s.repo).GetComment(c.ID); err != nil {
+		return nil, err
+	}
+	return (*s.repo).UpdateComment(c)
 }
 
 func (s service) DeleteComment(id int) error {
-	if _, err := s.GetComment(id); err != nil {
-		return err
-	}
 	return (*s.repo).DeleteComment(id)
-}
-
-func (s service) GetReply(id int) (*Comment, error) {
-	return (*s.repo).GetReply(id)
-}
-
-func (s service) AddReply(comment *Comment) error {
-	return (*s.repo).AddReply(comment)
-}
-
-func (s service) UpdateReply(comment *Comment, id int) error {
-	return (*s.repo).UpdateReply(comment, id)
-}
-
-func (s service) DeleteReply(id int) error {
-	if _, err := s.GetReply(id); err != nil {
-		return err
-	}
-	return (*s.repo).DeleteReply(id)
-}
-
-// NewService returns a struct that implements the release.Release interface
-func NewService(repo *Repository) Service {
-	return &service{repo: repo}
 }

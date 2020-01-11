@@ -116,9 +116,9 @@ func main() {
 		services["Release"] = &setup.ReleaseService
 	}
 	{
-		var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
+		var commentDBRepo = postgres.NewRepository(db, &dbRepos)
 		dbRepos["Comment"] = &commentDBRepo
-		var commentCacheRepo = memory.NewCommentRepository(&commentDBRepo, &cacheRepos)
+		var commentCacheRepo = memory.NewRepository(&commentDBRepo)
 		cacheRepos["Comment"] = &commentCacheRepo
 		setup.CommentService = comment.NewService(&commentCacheRepo)
 		services["Comment"] = &setup.CommentService
@@ -131,9 +131,9 @@ func main() {
 
 	setup.HostAddress += ":" + setup.Port
 
-	//setup.StrictSanitizer = bluemonday.StrictPolicy()
-	//setup.MarkupSanitizer = bluemonday.UGCPolicy()
-	//setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
+	setup.StrictSanitizer = bluemonday.StrictPolicy()
+	setup.MarkupSanitizer = bluemonday.UGCPolicy()
+	setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
 
 	setup.TokenSigningSecret = []byte("secret")
 	setup.TokenAccessLifetime = 15 * time.Minute

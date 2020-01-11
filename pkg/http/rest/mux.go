@@ -20,29 +20,28 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
 
-//Logger ...
+/*
+// Logger ...
 type Logger interface {
 	Log(format string, a ...interface{})
 }
-
+*/
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
 	Dependencies
-	Logger
 }
 
 // Dependencies contains dependencies used by the handlers.
 type Dependencies struct {
-	//StrictSanitizer *bluemonday.Policy
-	//MarkupSanitizer *bluemonday.Policy
-	UserService    user.Service
-	FeedService    feed.Service
-	CommentService comment.Service
-
-	ReleaseService release.Service
-	jwtBackend     *JWTAuthenticationBackend
-	Logger         *log.Logger
+	StrictSanitizer *bluemonday.Policy
+	MarkupSanitizer *bluemonday.Policy
+	UserService     user.Service
+	FeedService     feed.Service
+	ReleaseService  release.Service
+	CommentService  comment.Service
+	jwtBackend      *JWTAuthenticationBackend
+	Logger          *log.Logger
 }
 
 // Config contains the different settings used to set up the handlers
@@ -71,9 +70,25 @@ func NewMux(s *Setup) *mux.Router {
 	attachUserRoutesToRouters(mainRouter, secureRouter, s)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
+	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
 
 	return mainRouter
 }
+
+func attachCommentRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{id:[0-9]+}", getComment(setup)).Methods(http.MethodGet)
+	mainRouter.HandleFunc("/posts/{postID:[0-9]+}/comments", getComments(setup)).Methods(http.MethodGet)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments", postComment(setup)).Methods(http.MethodPost)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{id:[0-9]+}", patchComment(setup)).Methods(http.MethodPatch)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{id:[0-9]+}", deleteComment(setup)).Methods(http.MethodDelete)
+
+	mainRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{rootCommentID:[0-9]+}/replies/{id:[0-9]+}", getComment(setup)).Methods(http.MethodGet)
+	mainRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{rootCommentID:[0-9]+}/replies", getCommentReplies(setup)).Methods(http.MethodGet)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{rootCommentID:[0-9]+}/replies", postComment(setup)).Methods(http.MethodPost)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{rootCommentID:[0-9]+}/replies/{id:[0-9]+}", patchComment(setup)).Methods(http.MethodPatch)
+	secureRouter.HandleFunc("/posts/{postID:[0-9]+}/comments/{rootCommentID:[0-9]+}/replies/{id:[0-9]+}", deleteComment(setup)).Methods(http.MethodDelete)
+}
+
 func attachAuthRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/token-auth", postTokenAuth(setup)).Methods("POST")
 	mainRouter.HandleFunc("/token-auth-refresh", getTokenAuthRefresh(setup)).Methods("GET")
@@ -106,23 +121,10 @@ func attachUserRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setu
 	secureRouter.HandleFunc("/users/{username}/picture", putUserPicture(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/users/{username}/picture", deleteUserPicture(setup)).Methods("DELETE")
 }
-func attachCommentRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
-	mainRouter.HandleFunc("/posts/{postID}/comments/{commentID}", getComment(setup)).Methods("GET")
-	mainRouter.HandleFunc("/posts/{postID}/comments?sort=time", getComments(setup)).Methods("GET")
-	//TODO secure these routes
-	secureRouter.HandleFunc("/posts/{postID}/comments", postComment(setup)).Methods("POST")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", patchComment(setup)).Methods("PATCH")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", deleteComment(setup)).Methods("DELETE")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", getReply(setup)).Methods("GET")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/?sort=time", getReplys(setup)).Methods("GET")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies", patchReply(setup)).Methods("PATCH")
-	//secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", updateReply(setup)).Methods("PATCH")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", deleteReply(setup)).Methods("DELETE")
-}
 
 func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/releases", getReleases(setup)).Methods("GET")
-	mainRouter.HandleFunc("/releases", postReleases(setup)).Methods("POST")
+	mainRouter.HandleFunc("/releases", postRelease(setup)).Methods("POST")
 	//TODO secure these routes
 	secureRouter.HandleFunc("/releases/{id}", getRelease(setup)).Methods("GET")
 	secureRouter.HandleFunc("/releases/{id}", putRelease(setup)).Methods("PUT")

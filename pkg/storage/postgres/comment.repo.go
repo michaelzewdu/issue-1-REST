@@ -3,116 +3,174 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 )
 
-mport (
-"database/sql"
+type commentRepository repository
 
-"github.com/slim-crown/issue-1-REST/pkg/domain/post"
-)
-
-type CommentRepository repository
-
-func NewCommentRepository(DB *sql.DB, allRepos *map[string]interface{}) *CommentRepository {
-	return &CommentRepository{DB, allRepos}
+func NewRepository(DB *sql.DB, allRepos *map[string]interface{}) comment.Repository {
+	return &commentRepository{DB, allRepos}
 }
 
-// GetComment gets the Comment stored under the given id.
-func (repo *CommentRepository) GetComment(id int) (*comment.Comment, error) {
+func (repo commentRepository) AddComment(c *comment.Comment) (*comment.Comment, error) {
+	query := `INSERT INTO comments (post_from, reply_to, content, commented_by)
+				VALUES ($1, $2, $3, $4)
+				RETURNING id`
+	err := repo.db.QueryRow(query, c.OriginPost, c.ReplyTo, c.Content, c.Commenter).Scan(&c.ID)
+	if err != nil {
+		if pgErr, isPGErr := err.(pq.Error); !isPGErr {
+			switch pgErr.Column {
+			case "post_from":
+				return nil, comment.ErrPostNotFound
+			case "commented_by":
+				return nil, comment.ErrUserNotFound
+			default:
+				return nil, fmt.Errorf("insertion of user failed because of: %s", err.Error())
+			}
+		}
+		return nil, fmt.Errorf("insertion of comment failed because of: %v", err)
+	}
+	return c, nil
+}
+
+func (repo commentRepository) GetComment(id int) (*comment.Comment, error) {
 	var err error
 	var c = new(comment.Comment)
-	/*
-	ID           int      `json:"id"`
-		OriginPost   int      `json:"originpost"`
-		Commenter    string    `json:"comment"`
-		Content      string    `json:"content"`
-		ReplyTo      int      `json:"replyto"`
-		CreationTime time.Time `json:"creationtime"`*/
 
-	err = repo.db.QueryRow(`
-								SELECT COALESCE(post_id, ''), COALESCE(reply_to, ''), COALESCE(commented_by, ''),creation_time
-								FROM comments
-								WHERE id = $1`, id).Scan(&c.OriginPost, &c.ReplyTo, &c.Commenter, &c.CreationTime)
+	query := `SELECT post_from,commented_by,content,reply_to,creation_time
+				FROM comments
+				WHERE id = $1`
+	err = repo.db.QueryRow(query, id).Scan(&c.OriginPost, &c.Commenter, &c.Content, &c.ReplyTo, &c.CreationTime)
 	if err != nil {
 		return nil, comment.ErrCommentNotFound
 	}
-	return c,nil
-
+	c.ID = id
+	return c, nil
 }
 
-// DeletePost Deletes the Post stored under the given id.
-func (repo *CommentRepository) DeleteComment(id int) error {
-	_,err := repo.db.Exec(`DELETE FROM "issue#1".comments WHERE id = $1`,id)
+func (repo commentRepository) GetComments(postID int, by string, order string, limit, offset int) ([]*comment.Comment, error) {
+	{ // block checks if post exits
+		var found bool
+		err := repo.db.QueryRow(`
+				SELECT EXISTS(
+               SELECT *
+               FROM posts
+               WHERE id = $1)`, postID).Scan(&found)
+		if err != nil {
+			return nil, fmt.Errorf("unable to check if post exists")
+		}
+		if !found {
+			return nil, comment.ErrPostNotFound
+		}
+	}
+	var comments = make([]*comment.Comment, 0)
+	var err error
+	var rows *sql.Rows
+	query := fmt.Sprintf(`SELECT id,commented_by,content,reply_to,creation_time
+			FROM comments
+			WHERE post_from = $1
+			ORDER BY %s %s
+			LIMIT $2 OFFSET $3`, by, order)
+	rows, err = repo.db.Query(query, postID, limit, offset)
 	if err != nil {
-		fmt.Errorf("deletion from comment failed because: %v",err)
+		return nil, fmt.Errorf("querying for comments failed because of: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		c := new(comment.Comment)
+		// TODO check if type casting works
+		err := rows.Scan(&c.ID, &c.Commenter, &c.Content, &c.ReplyTo, &c.CreationTime)
+		if err != nil {
+			return nil, fmt.Errorf("scanning from row failed because: %v", err)
+		}
+		c.OriginPost = postID
+
+		comments = append(comments, c)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("scanning from rows faulty because: %v", err)
+	}
+	return comments, nil
+}
+
+func (repo commentRepository) GetReplies(commentID int, by string, order string, limit, offset int) ([]*comment.Comment, error) {
+	{ // block checks if root comment exits
+		var found bool
+		err := repo.db.QueryRow(`
+				SELECT EXISTS(
+               SELECT *
+               FROM comments
+               WHERE id = $1)`, commentID).Scan(&found)
+		if err != nil {
+			return nil, fmt.Errorf("unable to check if comment exists")
+		}
+		if !found {
+			return nil, comment.ErrCommentNotFound
+		}
+	}
+	var comments = make([]*comment.Comment, 0)
+	var err error
+	var rows *sql.Rows
+	query := fmt.Sprintf(`SELECT id,commented_by,content,post_from,creation_time
+			FROM comments
+			WHERE reply_to = $1
+			ORDER BY %s %s
+			LIMIT $2 OFFSET $3`, by, order)
+	rows, err = repo.db.Query(query, commentID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("querying for comments failed because of: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		c := new(comment.Comment)
+		// TODO check if type casting works
+		err := rows.Scan(&c.ID, &c.Commenter, &c.Content, &c.OriginPost, &c.CreationTime)
+		if err != nil {
+			return nil, fmt.Errorf("scanning from row failed because: %v", err)
+		}
+		c.ReplyTo = commentID
+
+		comments = append(comments, c)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("scanning from rows faulty because: %v", err)
+	}
+	return comments, nil
+}
+
+func (repo commentRepository) UpdateComment(c *comment.Comment) (*comment.Comment, error) {
+	var errs []error
+
+	if c.Content != "" {
+		query := `UPDATE comments
+				SET content = $1 
+				WHERE id = $2`
+		_, err := repo.db.Exec(query, c.Content, c.ID)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	const maxNoOfPossibleErr = 1
+	if len(errs) == maxNoOfPossibleErr {
+		return nil, fmt.Errorf("was unable to update any data because of %v", errs)
+	}
+	c, err := repo.GetComment(c.ID)
+	if err == nil {
+		if len(errs) > 0 {
+			err = comment.ErrSomeCommentDataNotPersisted
+		}
+	}
+	return c, err
+}
+
+func (repo commentRepository) DeleteComment(id int) error {
+	_, err := repo.db.Exec(`DELETE FROM comments
+							WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("deletion of comment failed because of: %v", err)
 	}
 	return nil
-}
-
-// AddPost Adds the Post stored under the given id.
-func (repo *comment.Repository) AddPost(p *post.Post) (*post.Post, error) {
-	p, err := (*repo.secondaryRepo).AddPost(p)
-	if err == nil {
-		repo.cache[p.ID] = *p
-	}
-	return p, err
-}
-
-//UpdatePost updates the post with given id and post struct
-func (repo *postRepository) UpdatePost(pos *post.Post, id int) (*post.Post, error) {
-	p, err := (*repo.secondaryRepo).UpdatePost(pos, id)
-	if err == nil {
-		repo.cache[p.ID] = *p
-	}
-	return p, err
-}
-
-// GetPostReleases(p *Post) ([]*Release, error)
-// GetPostRelease(pId int, rId int) (*Release, error)
-
-func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order post.SortOrder, limit int, offset int) ([]*post.Post, error) {
-	pos, err := (*repo.secondaryRepo).SearchPost(pattern, by, order, limit, offset)
-	if err == nil {
-		for _, p := range pos {
-			repo.cache[p.ID] = *p
-
-		}
-	}
-	return pos, err
-}
-func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, error) {
-	return (*repo.secondaryRepo).GetPostStar(id, username)
-}
-func (repo *postRepository) DeletePostStar(id int, username string) error {
-	err := (*repo.secondaryRepo).DeletePostStar(id, username)
-	if err == nil {
-		errs := repo.cachePost(id)
-		if errs != nil {
-			return errs
-		}
-
-	}
-	return err
-}
-func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, error) {
-	s, err := (*repo.secondaryRepo).AddPostStar(id, star)
-	if err == nil {
-		errs := repo.cachePost(id)
-		if errs != nil {
-			return s, errs
-		}
-	}
-	return s, err
-}
-func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star, error) {
-	s, err := (*repo.secondaryRepo).UpdatePostStar(id, star)
-	if err == nil {
-		errs := repo.cachePost(id)
-		if errs != nil {
-			return s, errs
-		}
-	}
-	return s, err
 }
