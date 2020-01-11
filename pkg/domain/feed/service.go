@@ -12,7 +12,7 @@ type Service interface {
 	GetFeed(username string) (*Feed, error)
 	GetPosts(f *Feed, sort Sorting, limit, offset int) ([]*Post, error)
 	GetChannels(f *Feed, sortBy SortBy, sortOrder SortOrder) ([]*Channel, error)
-	UpdateFeed(id uint, f *Feed) error
+	UpdateFeed(username string, f *Feed) error
 	Subscribe(f *Feed, channelname string) error
 	Unsubscribe(f *Feed, channelname string) error
 }
@@ -65,10 +65,10 @@ const (
 // ErrFeedNotFound is returned when the requested feed is not found
 var ErrFeedNotFound = fmt.Errorf("feed not found")
 
-// ErrChannelDoesNotExist is returned when the specified channel does not exist
-var ErrChannelDoesNotExist = fmt.Errorf("channel does not exist found")
+// ErrChannelNotFound is returned when the specified channel does not exist
+var ErrChannelNotFound = fmt.Errorf("channel does not exist found")
 
-//var UserDoesNotExist = fmt.Errorf("user does not exist found")
+//var ErrUserDoesNotExist = fmt.Errorf("user does not exist found")
 
 type service struct {
 	allServices *map[string]interface{}
@@ -157,10 +157,12 @@ func (s service) AddFeed(f *Feed) error {
 }
 
 // UpdateFeed updates the feed at the given id according to the given struct.
-func (s service) UpdateFeed(id uint, f *Feed) error {
-	if _, err := s.GetFeed(f.OwnerUsername); err != nil {
+func (s service) UpdateFeed(username string, f *Feed) error {
+	if oldFeed, err := s.GetFeed(username); err != nil {
 		return err
+	} else {
+		f.OwnerUsername = username
+		return (*s.repo).UpdateFeed(oldFeed.ID, f)
 	}
-	return (*s.repo).UpdateFeed(id, f)
 
 }

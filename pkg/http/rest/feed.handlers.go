@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// getFeed returns a handler for GET /users/{username}/feed/ requests
+// getFeed returns a handler for GET /users/{username}/feed requests
 func getFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
@@ -47,7 +47,7 @@ func getFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Printf("getting feed failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when getting feed"
-			statusCode = http.StatusNotFound
+			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
@@ -133,7 +133,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				s.Logger.Printf("fetching of posts from feed failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when getting posts"
-				statusCode = http.StatusNotFound
+				statusCode = http.StatusInternalServerError
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -208,7 +208,7 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Printf("fetching of channels of feed failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when getting channels"
-			statusCode = http.StatusNotFound
+			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
@@ -266,8 +266,8 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 					}
 					statusCode = http.StatusNotFound
-				case feed.ErrChannelDoesNotExist:
-					s.Logger.Printf("fetching of feed failed because: %v", err)
+				case feed.ErrChannelNotFound:
+					s.Logger.Printf("subscription to channel failed because: %v", err)
 					response.Data = jSendFailData{
 						ErrorReason:  "channelname",
 						ErrorMessage: fmt.Sprintf("channel of channelname %s not found", c.Channelname),
@@ -277,7 +277,7 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					s.Logger.Printf("subscribing feed to channel failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when subscribing to channel"
-					statusCode = http.StatusNotFound
+					statusCode = http.StatusInternalServerError
 				}
 			}
 		}
@@ -326,47 +326,22 @@ func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					newFeed.Sorting = feed.NotSet
 				}
 			}
-			switch oldFeed, err := s.FeedService.GetFeed(username); err {
+			switch err := s.FeedService.UpdateFeed(username, &newFeed); err {
 			case nil:
-				// if oldFeed exists, update
-				if newFeed.Sorting == oldFeed.Sorting && newFeed.OwnerUsername == oldFeed.OwnerUsername {
-					response.Status = "success"
-				} else {
-					s.Logger.Printf("trying to update feed of user %s", username)
-					if newFeed.OwnerUsername == "" {
-						newFeed.OwnerUsername = username
-					}
-					if err = s.FeedService.UpdateFeed(oldFeed.ID, &newFeed); err != nil {
-
-						s.Logger.Printf("update of feed failed because: %v", err)
-						response.Status = "error"
-						response.Message = "server error when updating feed"
-						statusCode = http.StatusNotFound
-					} else {
-						s.Logger.Printf("success updating of feed %s", username)
-						response.Status = "success"
-					}
-				}
+				s.Logger.Printf("success updating of feed %s", username)
+				response.Status = "success"
 			case feed.ErrFeedNotFound:
-				// if oldFeed not found, create
-				s.Logger.Printf("creating new user because username on PUT not recognized: %v", err)
-
-				newFeed.OwnerUsername = username //make sure created user has the new username
-				err := s.FeedService.AddFeed(&newFeed)
-				if err != nil {
-					s.Logger.Printf("creation of feed failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when creating Feed"
-					statusCode = http.StatusNotFound
-				} else {
-					response.Status = "success"
+				s.Logger.Printf("putting of feed failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
 				}
-				s.Logger.Printf("success creating feed for user %s", username)
+				statusCode = http.StatusNotFound
 			default:
 				s.Logger.Printf("updating of feed failed because: %v", err)
 				response.Status = "error"
 				response.Message = "server error when updating Feed"
-				statusCode = http.StatusNotFound
+				statusCode = http.StatusInternalServerError
 			}
 
 		}
@@ -396,18 +371,11 @@ func deleteFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		case nil:
 			response.Status = "success"
 			s.Logger.Printf("success unsubscription feed from channel")
-		case feed.ErrFeedNotFound:
-			s.Logger.Printf("deletion of feed failed because: %v", err)
-			response.Data = jSendFailData{
-				ErrorReason:  "username",
-				ErrorMessage: fmt.Sprintf("feed of username %s not found", username),
-			}
-			statusCode = http.StatusNotFound
 		default:
 			s.Logger.Printf("unsubscription of feed from failed because: %v", err)
 			response.Status = "error"
 			response.Message = "server error when unsubscription from channel"
-			statusCode = http.StatusNotFound
+			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}

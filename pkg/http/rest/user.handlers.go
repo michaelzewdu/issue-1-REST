@@ -44,7 +44,7 @@ func postUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					response.Data = jSendFailData{
 						ErrorReason: "request format",
 						ErrorMessage: `bad request, use format
-				{"username":"username len 5-22 chars",
+				{"username":"username len 5-24 chars",
 				"passHash":"passHash",
 				"email":"email",
 				"firstName":"firstName",
@@ -79,10 +79,10 @@ func postUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					ErrorMessage: "username is required",
 				}
 			} else {
-				if len(u.Username) > 22 || len(u.Username) < 5 {
+				if len(u.Username) > 24 || len(u.Username) < 5 {
 					response.Data = jSendFailData{
 						ErrorReason:  "username",
-						ErrorMessage: "username length shouldn't be shorter that 5 and longer than 22 chars",
+						ErrorMessage: "username length shouldn't be shorter that 5 and longer than 24 chars",
 					}
 				}
 			}
@@ -286,7 +286,7 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			response.Data = jSendFailData{
 				ErrorReason: "request format",
 				ErrorMessage: `bad request, use format
-				{"username":"username len 5-22 chars",
+				{"username":"username len 5-24 chars",
 				"passHash":"passHash",
 				"email":"email",
 				"firstName":"firstName",
@@ -310,7 +310,16 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					s.Logger.Printf("success put user at user %s data %v", username, u)
 					response.Status = "success"
 					response.Data = *u
-
+				default:
+					s.Logger.Printf("update of user failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when updating user"
+					statusCode = http.StatusInternalServerError
+				}
+			} else if len(u.Username) > 24 || len(u.Username) < 5 {
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: "username length shouldn't be shorter that 5 and longer than 24 chars",
 				}
 			} else {
 				u, err = s.UserService.UpdateUser(u, username)
@@ -350,7 +359,6 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				case user.ErrSomeUserDataNotPersisted:
 					fallthrough
 				default:
-					_ = s.UserService.DeleteUser(u.Username)
 					s.Logger.Printf("update of user failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when updating user"

@@ -13,8 +13,8 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// postReleases returns a handler for POST /releases requests
-func postReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+// postRelease returns a handler for POST /releases requests
+func postRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -406,7 +406,6 @@ func putRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 						}
 						statusCode = http.StatusNotFound
 					case release.ErrSomeReleaseDataNotPersisted:
-						_ = d.ReleaseService.DeleteRelease(rel.ID)
 						fallthrough
 					default:
 						d.Logger.Printf("update of release failed because: %v", err)
