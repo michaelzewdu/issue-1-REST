@@ -5,34 +5,45 @@ import (
 	"fmt"
 	"github.com/lib/pq"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
-
 	"time"
 )
 
-func NewChannelRepository(DB *sql.DB, allRepos *map[string]interface{}) *ChannelRepository {
+//ChannelRepository...
+type ChannelRepository repository
+
+// NewChannelRepository returns a new in PostgreSQL implementation of channel.Repository.
+// the database connection must be passed as the first argument
+// since for the repo to work.
+// A map of all the other PostgreSQL based implementations of the Repository interfaces
+// found in the different services of the project must be passed as a second argument as
+// the Repository might make use of them to fetch objects instead of implementing redundant logic.
+//Each none helper function if successful will try to cache.
+func NewChannelRepository(DB *sql.DB, allRepos *map[string]interface{}) channel.Repository {
 	return &ChannelRepository{DB, allRepos}
 }
 
+// AddChannel takes in a channel.Channel struct and persists it in the database.
 func (repo *ChannelRepository) AddChannel(c *channel.Channel) error {
 	var err error
 
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".channels (username, name, description)
-							VALUES ($1, $2, $3)`, c.Username, c.Name, c.Description)
+							VALUES ($1, $2, $3)`, c.ChannelUsername, c.Name, c.Description)
 	if err != nil {
 		return fmt.Errorf("insertion of user failed because of: %s", err.Error())
 	}
 
 	return nil
 }
-func (repo *ChannelRepository) GetChannel(username string) (*channel.Channel, error) {
+
+// GetChannel retrieves a channel.Channel user.User based on the username passed.
+func (repo *ChannelRepository) GetChannel(channelUsername string) (*channel.Channel, error) {
 	var err error
 	var c = new(channel.Channel)
 
 	var creationTimeString string
 	err = repo.db.QueryRow(`SELECT name, COALESCE(description, ''), creation_time
 							FROM "issue#1".channels
-							WHERE username = $1`, username).Scan(&c.Name, &c.Description, &creationTimeString)
+							WHERE username = $1`, channelUsername).Scan(&c.Name, &c.Description, &creationTimeString)
 	if err != nil {
 		return nil, channel.ErrChannelNotFound
 	}
@@ -43,29 +54,33 @@ func (repo *ChannelRepository) GetChannel(username string) (*channel.Channel, er
 	}
 	c.CreationTime = creationTime
 
-	admins, err := repo.GetAdmins(username)
+	admins, err := repo.GetAdmins(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get admins because of: %s", err.Error())
 	}
-	owner, err := repo.GetOwner(username)
+	owner, err := repo.GetOwner(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get owner because of: %s", err.Error())
 	}
-	stickiedPosts, err := repo.GetStickiedPost(username)
+	stickiedPosts, err := repo.GetStickiedPost(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 	}
-	posts, err := repo.GetPosts(username)
+	posts, err := repo.GetPosts(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get posts because of: %s", err.Error())
 	}
-	unOfficialReleases, err := repo.GetUnOfficialRelease(username)
+	unOfficialReleases, err := repo.GetUnOfficialRelease(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get UnOfficialRelease because of: %s", err.Error())
 	}
-	officialReleases, err := repo.GetOfficialRelease(username)
+	officialReleases, err := repo.GetOfficialRelease(channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get UnOfficialRelease because of: %s", err.Error())
+	}
+	pictureURL, err := repo.GetPicture(channelUsername)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get Picture because of: %s", err.Error())
 	}
 	c.AdminUsernames = admins
 	c.OwnerUsername = owner
@@ -73,25 +88,28 @@ func (repo *ChannelRepository) GetChannel(username string) (*channel.Channel, er
 	c.PostIDs = posts
 	c.ReleaseIDs = unOfficialReleases
 	c.OfficialReleaseIDs = officialReleases
-	c.Username = username
+	c.PictureURL = pictureURL
+	c.ChannelUsername = channelUsername
 	return c, nil
 }
-func (repo *ChannelRepository) UpdateChannel(username string, c *channel.Channel) error {
+
+// UpdateChannel updates a channel based on the passed in channel.Channel struct into channelUsername.
+func (repo *ChannelRepository) UpdateChannel(channelUsername string, c *channel.Channel) error {
 	var err error
 	if c.Name != "" {
-		err = repo.execUpdateStatementOnColumn("name", c.Name, username)
+		err = repo.execUpdateStatementOnColumn("name", c.Name, channelUsername)
 		if err != nil {
 			return err
 		}
 	}
-	if c.Username != "" {
-		err = repo.execUpdateStatementOnColumn("username", c.Username, username)
+	if c.ChannelUsername != "" {
+		err = repo.execUpdateStatementOnColumn("username", c.ChannelUsername, channelUsername)
 		if err != nil {
 			return err
 		}
 	}
 	if c.Description != "" {
-		err = repo.execUpdateStatementOnColumn("description", c.Description, username)
+		err = repo.execUpdateStatementOnColumn("description", c.Description, channelUsername)
 		if err != nil {
 			return err
 		}
@@ -99,6 +117,7 @@ func (repo *ChannelRepository) UpdateChannel(username string, c *channel.Channel
 	return nil
 }
 
+// execUpdateStatementOnColumn is just a helper function that updates a certain column
 func (repo *ChannelRepository) execUpdateStatementOnColumn(column, value, username string) error {
 	_, err := repo.db.Exec(fmt.Sprintf(`UPDATE "issue#1".channels 
 									SET %s = $1 
@@ -108,14 +127,18 @@ func (repo *ChannelRepository) execUpdateStatementOnColumn(column, value, userna
 	}
 	return nil
 }
-func (repo *ChannelRepository) DeleteChannel(username string) error {
+
+// DeleteChannel deletes a channel based on the passed in channelUsername.
+func (repo *ChannelRepository) DeleteChannel(channelUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channels
-							WHERE username = $1`, username)
+							WHERE username = $1`, channelUsername)
 	if err != nil {
 		return fmt.Errorf("deletion of tuple from channels because of: %s", err.Error())
 	}
 	return nil
 }
+
+// GetUnOfficialRelease is just a helper function that gets the UnOfficial Release List
 func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, error) {
 	var UnOfficialList []int
 	var Release int
@@ -135,7 +158,6 @@ func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, err
 		}
 		if official == false {
 
-			fmt.Errorf("is it here")
 			UnOfficialList = append(UnOfficialList, Release)
 		}
 		i++
@@ -146,6 +168,8 @@ func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, err
 	}
 	return UnOfficialList, nil
 }
+
+// GetOfficialRelease is just a helper function that gets the Official Release List
 func (repo *ChannelRepository) GetOfficialRelease(username string) ([]int, error) {
 	var OfficialList []int
 	var Release int
@@ -174,6 +198,8 @@ func (repo *ChannelRepository) GetOfficialRelease(username string) ([]int, error
 	}
 	return OfficialList, nil
 }
+
+// GetPosts is just a helper function that gets the Post List
 func (repo *ChannelRepository) GetPosts(username string) ([]int, error) {
 	var PostList []int
 	var Post int
@@ -200,6 +226,8 @@ func (repo *ChannelRepository) GetPosts(username string) ([]int, error) {
 	}
 	return PostList, nil
 }
+
+// GetUnOfficialRelease is just a helper function that gets the Stickied Post List
 func (repo *ChannelRepository) GetStickiedPost(username string) ([]int, error) {
 	var stickied []int
 
@@ -215,6 +243,7 @@ INNER JOIN "issue#1".posts ON channel_stickies.post_id =posts.id WHERE posts.cha
 		return nil, fmt.Errorf("querying for posts failed because of: %v", err)
 	}
 	defer rows.Close()
+
 	i := 0
 	for rows.Next() {
 		err := rows.Scan(&Post)
@@ -231,6 +260,8 @@ INNER JOIN "issue#1".posts ON channel_stickies.post_id =posts.id WHERE posts.cha
 
 	return stickied, nil
 }
+
+// GetOwner is just a helper function that gets the Owner
 func (repo *ChannelRepository) GetOwner(username string) (string, error) {
 	var owner string
 	var Admin string
@@ -260,6 +291,10 @@ func (repo *ChannelRepository) GetOwner(username string) (string, error) {
 
 	return owner, nil
 }
+
+// SearchChannel searches for channels according to the pattern.
+// If no pattern is provided, it returns all channels.
+// It makes use of pagination.
 func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.SortBy, sortOrder channel.SortOrder, limit, offset int) ([]*channel.Channel, error) {
 	var channels = make([]*channel.Channel, 0)
 	var err error
@@ -280,7 +315,7 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 	var creationTimeString string
 	for rows.Next() {
 		c := channel.Channel{}
-		err := rows.Scan(&c.Username, &c.Name, &c.Description, &creationTimeString)
+		err := rows.Scan(&c.ChannelUsername, &c.Name, &c.Description, &creationTimeString)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %s", err.Error())
 		}
@@ -290,31 +325,35 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 		}
 		creationTime, errC := time.Parse(time.RFC3339, creationTimeString)
 		if errC != nil {
-			return nil, fmt.Errorf("parsing of timestamp to time.Time failed because of: %s", err.Error())
+			return nil, fmt.Errorf("parsing of timestamp to time.Time failed because of: %s", errC.Error())
 		}
 		c.CreationTime = creationTime
 
-		admins, err := repo.GetAdmins(c.Username)
+		admins, err := repo.GetAdmins(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
-		owner, err := repo.GetOwner(c.Username)
+		owner, err := repo.GetOwner(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
-		stickiedPosts, err := repo.GetStickiedPost(c.Username)
+		stickiedPosts, err := repo.GetStickiedPost(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
-		posts, err := repo.GetPosts(c.Username)
+		posts, err := repo.GetPosts(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
-		unOfficialReleases, err := repo.GetUnOfficialRelease(c.Username)
+		unOfficialReleases, err := repo.GetUnOfficialRelease(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
-		officialReleases, err := repo.GetUnOfficialRelease(c.Username)
+		officialReleases, err := repo.GetUnOfficialRelease(c.ChannelUsername)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+		}
+		pictureURL, err := repo.GetPicture(c.ChannelUsername)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
 		}
@@ -324,7 +363,7 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 		c.PostIDs = posts
 		c.ReleaseIDs = unOfficialReleases
 		c.OfficialReleaseIDs = officialReleases
-
+		c.PictureURL = pictureURL
 		channels = append(channels, &c)
 	}
 	err = rows.Err()
@@ -334,6 +373,7 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 	return channels, nil
 }
 
+// AddAdmin adds a User adminUsername to the channel channelUsername as an admin
 func (repo *ChannelRepository) AddAdmin(channelUsername string, adminUsername string) error {
 	var err error
 	owner := false
@@ -344,6 +384,8 @@ func (repo *ChannelRepository) AddAdmin(channelUsername string, adminUsername st
 	}
 	return nil
 }
+
+// DeleteAdmin deletes role of a User adminUsername of the channel channelUsername as an admin
 func (repo *ChannelRepository) DeleteAdmin(channelUsername string, adminUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_admins
 							WHERE channel_username = $1 AND "user"= $2`, channelUsername, adminUsername)
@@ -352,12 +394,14 @@ func (repo *ChannelRepository) DeleteAdmin(channelUsername string, adminUsername
 	}
 	return nil
 }
-func (repo *ChannelRepository) GetAdmins(username string) ([]string, error) {
+
+// GetAdmins gets a list of Admins of channel channelUsername
+func (repo *ChannelRepository) GetAdmins(channelUsername string) ([]string, error) {
 	var AdminList []string
 	var Admin string
 	rows, err := repo.db.Query(`SELECT "user"
                 FROM "issue#1".channel_admins
-                WHERE channel_username = $1`, username)
+                WHERE channel_username = $1`, channelUsername)
 	if err != nil {
 		return nil, fmt.Errorf("querying for admins failed because of: %v", err)
 	}
@@ -378,6 +422,7 @@ func (repo *ChannelRepository) GetAdmins(username string) ([]string, error) {
 	return AdminList, nil
 }
 
+// ChangeOwner gets the owner of channel channelUsername
 func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername string) error {
 	var err error
 	var owner bool = true
@@ -388,16 +433,20 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 	}
 	return nil
 }
+
+// AddReleaseToOfficialCatalog adds a release releaseID into the Official Catalog channel channelUsername
 func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int) error {
-	is_official := true
+	isOfficial := true
 	_, err := repo.db.Exec(`UPDATE "issue#1".channel_catalog
 							SET is_official = $3
-							WHERE channel_username = $1 AND release_id = $2`, channelUsername, releaseID, is_official)
+							WHERE channel_username = $1 AND release_id = $2`, channelUsername, releaseID, isOfficial)
 	if err != nil {
 		return fmt.Errorf("deletion of tuple from channel_catalogs because of: %s", err.Error())
 	}
 	return nil
 }
+
+// DeleteReleaseFromCatalog deletes a release releaseID from Catalog of channel channelUsername
 func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_catalog
 							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID)
@@ -407,6 +456,19 @@ func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, 
 	return nil
 }
 
+// DeleteReleaseFromOfficialCatalog deletes a release releaseID from Official Catalog of channel channelUsername
+func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
+	isOfficial := false
+	_, err := repo.db.Exec(`UPDATE "issue#1".channel_catalog
+							SET is_official = $3
+							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID, isOfficial)
+	if err != nil {
+		return fmt.Errorf("deletion of tuple from channel_catalogs because of: %s", err.Error())
+	}
+	return nil
+}
+
+// StickyPost stickies a post on channel channelUsername
 func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) error {
 	a, err := repo.GetStickiedPost(channelUsername)
 	if err != nil {
@@ -422,7 +484,7 @@ func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) er
 		if err != nil {
 			if pgErr, isPGErr := err.(pq.Error); !isPGErr {
 				if pgErr.Code != foreignKeyViolationErrorCode {
-					return user.ErrPostNotFound
+					return channel.ErrPostNotFound
 				}
 				return fmt.Errorf("inserting into channel_stickies failed because of: %s", err.Error())
 			}
@@ -431,6 +493,7 @@ func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) er
 	return nil
 }
 
+// DeleteStickiedPost deletes a stickied post from channel channelUsername
 func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
 	//TODO
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_stickies
@@ -439,4 +502,59 @@ func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, sticki
 		return fmt.Errorf("deletion of tuple from channel_stickie because of: %s", err.Error())
 	}
 	return nil
+}
+
+// AddPicture persists the given name as the image_name for the user under the given username
+func (repo *ChannelRepository) AddPicture(channelUsername string, name string) error {
+	_, err := repo.db.Exec(`INSERT INTO "issue#1".channel_pictures (channelname, image_name) 
+								VALUES ($1, $2)
+								ON CONFLICT(channelname) DO UPDATE
+								SET image_name = $1`, channelUsername, name)
+	const foreignKeyViolationErrorCode = pq.ErrorCode("23503")
+	if err != nil {
+		if pgErr, isPGErr := err.(pq.Error); !isPGErr {
+			if pgErr.Code == foreignKeyViolationErrorCode {
+				return channel.ErrChannelNotFound
+			}
+			return fmt.Errorf("inserting into channel_pictures failed because of: %v", err)
+		}
+	}
+	return nil
+}
+
+// RemovePicture removes the username's tuple entry from the user_avatars table.
+func (repo *ChannelRepository) RemovePicture(channelUsername string) error {
+	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_pictures
+							WHERE channelname = $1`, channelUsername)
+	if err != nil {
+		return fmt.Errorf("deletion of tuple from channel_pictures failed because of: %v", err)
+	}
+	return nil
+}
+
+// GetPicture gets the username's tuple entry from the user_avatars table.
+func (repo *ChannelRepository) GetPicture(ChannelUsername string) (string, error) {
+	var pictureURL string
+
+	rows, err := repo.db.Query(`SELECT image_name
+                FROM "issue#1".channel_pictures
+                WHERE channelname = $1`, ChannelUsername)
+	if err != nil {
+		return "", fmt.Errorf("querying for pictures failed because of: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&pictureURL)
+		if err != nil {
+			return "", err
+		}
+
+	}
+	err = rows.Err()
+	if err != nil {
+		return "", err
+	}
+
+	return pictureURL, nil
 }
