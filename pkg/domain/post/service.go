@@ -99,6 +99,7 @@ func (s service) DeletePost(id int) error {
 
 // AddPost Adds the Post stored under the given id.
 func (s service) AddPost(p *Post) (*Post, error) {
+
 	return (*s.repo).AddPost(p)
 }
 
@@ -120,6 +121,7 @@ func (s service) GetPostStar(id int, username string) (*Star, error) {
 	return (*s.repo).GetPostStar(id, username)
 }
 func (s service) DeletePostStar(id int, username string) error {
+
 	return (*s.repo).DeletePostStar(id, username)
 }
 func (s service) AddPostStar(id int, star *Star) (*Star, error) {

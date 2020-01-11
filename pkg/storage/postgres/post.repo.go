@@ -4,11 +4,15 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/lib/pq"
+
 	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 )
 
 type postRepository repository
 
+// NewPostRepository returns a struct that implements the release.Repository using
+//a postgres database
 func NewPostRepository(DB *sql.DB, allRepos *map[string]interface{}) post.Repository {
 	return &postRepository{DB, allRepos}
 }
@@ -23,7 +27,8 @@ func (repo *postRepository) GetPost(id int) (*post.Post, error) {
 								FROM "issue#1".posts
 								WHERE posts.id = $1`, id).Scan(&p.PostedByUsername, &p.OriginChannel, &p.Title, &p.Description, &p.CreationTime)
 	if err != nil {
-		return nil, err
+		checkErr(err)
+		return nil, post.ErrPostNotFound
 	}
 	ContentList, errr := repo.getContents(id)
 	if errr != nil {
@@ -47,7 +52,7 @@ func (repo *postRepository) GetPost(id int) (*post.Post, error) {
 
 }
 func (repo *postRepository) getContents(id int) ([]int, error) {
-	// TODO test this method
+
 	var ContentList = []int{}
 	var (
 		releaseID int
@@ -57,17 +62,17 @@ func (repo *postRepository) getContents(id int) ([]int, error) {
 								FROM "issue#1".post_contents
 								WHERE post_id = $1`, id)
 	if err != nil {
+		checkErr(err)
 		return nil, fmt.Errorf("querying for post contents failed because of: %v", err)
 	}
 	defer rows.Close()
-	i := 0
 	for rows.Next() {
 		err := rows.Scan(&releaseID)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
-		ContentList[i] = releaseID
-		i++
+		ContentList = append(ContentList, releaseID)
+
 	}
 	err = rows.Err()
 	if err != nil {
@@ -77,7 +82,7 @@ func (repo *postRepository) getContents(id int) ([]int, error) {
 }
 
 func (repo *postRepository) getComments(id int) ([]int, error) {
-	// TODO test this method
+
 	var CommentList = []int{}
 	var (
 		commentID int
@@ -90,14 +95,12 @@ func (repo *postRepository) getComments(id int) ([]int, error) {
 		return nil, fmt.Errorf("querying for post contents failed because of: %v", err)
 	}
 	defer rows.Close()
-	i := 0
 	for rows.Next() {
 		err := rows.Scan(&commentID)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
-		CommentList[i] = commentID
-		i++
+		CommentList = append(CommentList, commentID)
 	}
 	err = rows.Err()
 	if err != nil {
@@ -146,7 +149,7 @@ func (repo *postRepository) DeletePost(id int) error {
 	return nil
 }
 
-// AddPost Adds the Post stored under the given id.
+// AddPost Adds the Post stored under its id from given post struct.
 func (repo *postRepository) AddPost(p *post.Post) (*post.Post, error) {
 
 	query := `INSERT INTO "issue#1".posts (posted_by,channel_from, title,description) 
@@ -154,6 +157,7 @@ func (repo *postRepository) AddPost(p *post.Post) (*post.Post, error) {
 				RETURNING id`
 	errs := repo.db.QueryRow(query, p.PostedByUsername, p.OriginChannel, p.Title, p.Description).Scan(&p.ID)
 	if errs != nil {
+		checkErr(errs)
 		return nil, post.ErrSomePostDataNotPersisted
 	}
 	fmt.Println("\ndfsjlk")
@@ -168,8 +172,7 @@ func (repo *postRepository) AddPost(p *post.Post) (*post.Post, error) {
 //UpdatePost updates the post with given id and post struct
 func (repo *postRepository) UpdatePost(pos *post.Post, id int) (*post.Post, error) {
 	var errs []error
-	// Checks if value is to be updated before attempting.
-	// This way, there won't be columns with Go's zero string value of "" instead of null
+
 	if pos.PostedByUsername != "" {
 		err := repo.execUpdateStatementOnColumnIntoPost("posted_by", pos.PostedByUsername, id)
 		if err != nil {
@@ -254,9 +257,7 @@ func (repo postRepository) execUpdateStatementOnColumnIntoStars(value map[string
 	return nil
 }
 
-// GetPostReleases(p *Post) ([]*Release, error)
-// GetPostRelease(pId int, rId int) (*Release, error)
-
+// SearchPost gets all Posts under specfications
 func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order post.SortOrder, limit int, offset int) ([]*post.Post, error) {
 	var posts = make([]*post.Post, 0)
 	var err error
@@ -287,7 +288,7 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 		if e != nil {
 			return nil, e
 		}
-		CommentList, d := repo.getContents(p.ID)
+		CommentList, d := repo.getComments(p.ID)
 		if d != nil {
 			return nil, fmt.Errorf("Comments Not found because of: %v", d)
 		}
@@ -305,6 +306,8 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 	return posts, nil
 
 }
+
+// GetPostStar gets the star stored under the given postid and username.
 func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, error) {
 	s := post.Star{}
 
@@ -312,35 +315,51 @@ func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, er
 								FROM "issue#1".post_stars 
 								WHERE post_id = $1 AND username=$2`, id, username).Scan(&s.Username, &s.NumOfStars)
 	if err != nil {
+		checkErr(err)
 		return nil, post.ErrStarNotFound
 	}
 	return &s, nil
 
 }
+
+//DeletePostStar deletes the star stored under given postid and username
 func (repo *postRepository) DeletePostStar(id int, username string) error {
-	_, err := repo.db.Exec(`DELETE FROM post_stars
+	_, err := repo.db.Exec(`DELETE FROM "issue#1".post_stars
 							WHERE post_id = $1 AND username=$2`, id, username)
 	if err != nil {
+		checkErr(err)
 		return post.ErrStarNotFound
 	}
 	return nil
 }
+
+//AddPostStar adds a star given postid, number of stars and username
 func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, error) {
-	query := `INSERT INTO post_stars (post_id,username, star_count) 
-				VALUES ($1, $2,$3)`
-	errs := repo.db.QueryRow(query, id, star.Username, star.NumOfStars)
+	query := `INSERT INTO "issue#1".post_stars (post_id,username, star_count) 
+				VALUES ($1,$2,$3)`
+	_, errs := repo.db.Exec(query, id, star.Username, star.NumOfStars)
 	if errs != nil {
-		return nil, fmt.Errorf("insertion of star failed because of: %v", errs)
-	}
-	return repo.GetPostStar(id, star.Username)
-}
-func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star, error) {
-	query := `UPDATE post_stars
-								SET username = $1,star_count=$2 
-								WHERE post_id = $3`
-	errs := repo.db.QueryRow(query, star.Username, star.NumOfStars, id)
-	if errs != nil {
+		checkErr(errs)
 		return nil, post.ErrStarNotFound
 	}
 	return repo.GetPostStar(id, star.Username)
+}
+
+//UpdatePostStar updates a star stored given postid, number of stars and username
+func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star, error) {
+	query := `UPDATE "issue#1".post_stars
+								SET star_count=$2 
+								WHERE post_id = $3 AND username = $1`
+	_, errs := repo.db.Exec(query, star.Username, star.NumOfStars, id)
+	if errs != nil {
+
+		return nil, post.ErrStarNotFound
+	}
+	return repo.GetPostStar(id, star.Username)
+}
+func checkErr(errs error) {
+	if pgErr, isPGErr := errs.(pq.Error); !isPGErr {
+		fmt.Printf("prin\n%v", pgErr)
+	}
+	fmt.Printf("error here")
 }

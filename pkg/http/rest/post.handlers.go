@@ -189,9 +189,16 @@ func putPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					s.Logger.Log("success put post %s", idRaw, pos.PostedByUsername, pos.OriginChannel, pos.Title, pos.Description)
 					response.Status = "success"
 					response.Data = *pos
+				case post.ErrPostNotFound:
+					response.Status = "error"
+					s.Logger.Log("updation of Post failed because: %v", erron)
+					response.Data = jSendFailData{
+						ErrorReason:  "PostID",
+						ErrorMessage: fmt.Sprintf("Post of id %d not found", id),
+					}
+					statusCode = http.StatusNotFound
 
 				default:
-					_ = s.PostService.DeletePost(pos.ID)
 					s.Logger.Log("adding of post failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when adding post"
@@ -550,13 +557,18 @@ func getPostStar(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 				response.Data = *st
 				d.Logger.Log("success fetch Star of Post %d and username %s", id, username)
 
-			case post.ErrStarNotFound:
+			case post.ErrPostNotFound:
 				response.Data = jSendFailData{
-					ErrorReason:  "postID/username",
-					ErrorMessage: fmt.Sprintf("star of postID %d and username %s not found", id, username),
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
 				}
 				statusCode = http.StatusNotFound
-
+			case post.ErrUserNotFound:
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+				}
+				statusCode = http.StatusNotFound
 			default:
 				d.Logger.Log("fetching of post failed because: %v", err)
 				response.Status = "error"
@@ -597,21 +609,26 @@ func putPostStar(s *Setup) func(http.ResponseWriter, *http.Request) {
 			statusCode = http.StatusBadRequest
 		} else {
 			username := st.Username
+			
 			if st.NumOfStars == 0 {
 				errs := s.PostService.DeletePostStar(id, username)
 				switch errs {
 				case nil:
 					response.Status = "success"
 					s.Logger.Log("success deleting Star of Post %d and username %s", id, username)
-
-				case post.ErrStarNotFound:
-					s.Logger.Log("deletion of Star failed because: %v", err)
+					response.Data = *st
+				case post.ErrPostNotFound:
 					response.Data = jSendFailData{
-						ErrorReason:  "postID/username",
-						ErrorMessage: fmt.Sprintf("star of postID %d and username %s not found", id, username),
+						ErrorReason:  "postID",
+						ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
 					}
 					statusCode = http.StatusNotFound
-
+				case post.ErrStarNotFound:
+					response.Data = jSendFailData{
+						ErrorReason:  "username",
+						ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+					}
+					statusCode = http.StatusNotFound
 				default:
 					s.Logger.Log("deletion of Star failed because: %v", err)
 					response.Status = "error"
@@ -630,32 +647,71 @@ func putPostStar(s *Setup) func(http.ResponseWriter, *http.Request) {
 				statusCode = http.StatusBadRequest
 			}
 			if response.Data == nil {
-
+				
 				_, errr := s.PostService.GetPostStar(id, username)
 				switch errr {
 				case nil:
 					newStar, w := s.PostService.UpdatePostStar(id, st)
+					
 					switch w {
 					case nil:
 						response.Status = "success"
 						response.Data = *newStar
 						s.Logger.Log("successful in updating Star of Post %d and username %s", id, username)
-
+					case post.ErrPostNotFound:
+						response.Data = jSendFailData{
+							ErrorReason:  "postID",
+							ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+						}
+						statusCode = http.StatusNotFound
+					case post.ErrUserNotFound:
+						response.Data = jSendFailData{
+							ErrorReason:  "username",
+							ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+						}
+						statusCode = http.StatusNotFound
 					default:
-						_ = s.PostService.DeletePostStar(id, username)
-						s.Logger.Log("adding of post star failed because: %v", err)
+						s.Logger.Log("updating of post star failed because: %v", w)
+						response.Status = "error"
+						response.Message = "server error when updating post star"
+						statusCode = http.StatusInternalServerError
+					}
+				case post.ErrPostNotFound:
+					response.Data = jSendFailData{
+						ErrorReason:  "postID",
+						ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+					}
+					statusCode = http.StatusNotFound
+				
+				case post.ErrStarNotFound:
+					
+					newStar, e := s.PostService.AddPostStar(id, st)
+					switch e {
+					case nil:
+						
+						response.Status = "success"
+						response.Data = *newStar
+						s.Logger.Log("successful in adding Star of Post %d and username %s", id, username)
+					case post.ErrPostNotFound:
+						response.Data = jSendFailData{
+							ErrorReason:  "postID",
+							ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+						}
+						statusCode = http.StatusNotFound
+					case post.ErrUserNotFound:
+						response.Data = jSendFailData{
+							ErrorReason:  "username",
+							ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+						}
+						statusCode = http.StatusNotFound
+					default:
+						s.Logger.Log("adding of post star failed because: %v", w)
 						response.Status = "error"
 						response.Message = "server error when adding post star"
 						statusCode = http.StatusInternalServerError
 					}
-				case post.ErrStarNotFound:
-					newStar, _ := s.PostService.AddPostStar(id, st)
-					response.Status = "success"
-					response.Data = *newStar
-					s.Logger.Log("successful in adding Star of Post %d and username %s", id, username)
-
 				default:
-					s.Logger.Log("fetching of post star failed because: %v", err)
+					s.Logger.Log("fetching of post star failed because: %v", errr)
 					response.Status = "error"
 					response.Message = "server error when fetching post star"
 					statusCode = http.StatusInternalServerError
