@@ -9,46 +9,49 @@ import (
 	"net/http"
 	"strconv"
 )
+
 //getCommentID returns a handler for GET  /posts/{postID}/comments/{commentID}
-func getCommentID(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+func getComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-
 		vars := mux.Vars(r)
-		idRaw := vars["id"]
-		commenter := vars["commenter"]
-		//postID := vars["postID"]
-		id, err := strconv.Atoi(idRaw)
+
+		commentID := vars["commentID"]
+
 		{ // this block secures the route
-			if commenter != r.Header.Get("authorized_User") {
+			//TODO
+			if commentID != r.Header.Get("authorized_User") {
 				d.Logger.Log("unauthorized post comment request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
+
+		idC, err := strconv.Atoi(commentID)
+
 		if err != nil {
-			d.Logger.Log("fetch attempt of non invalid comment id %s", idRaw)
+			d.Logger.Log("fetch attempt of non invalid type of comment ID %s", idC)
 			response.Data = jSendFailData{
 				ErrorReason:  "commentID",
-				ErrorMessage: fmt.Sprintf("invalid commentID %d", id),
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", idC),
 			}
 			statusCode = http.StatusBadRequest
 		}
 
 		if response.Data == nil {
-			d.Logger.Log("trying to fetch Comment %d", id)
-			rel, err := d.CommentService.GetComment(id)
+			d.Logger.Log("trying to fetch Comment %d", idC)
+			rel, err := d.CommentService.GetComment(idC)
 			switch err {
 			case nil:
 				response.Status = "success"
 				response.Data = *rel
-				d.Logger.Log("success fetching comment %d", id)
+				d.Logger.Log("success fetching comment %d", idC)
 			case comment.ErrCommentNotFound:
 				response.Data = jSendFailData{
 					ErrorReason:  "commentID",
-					ErrorMessage: fmt.Sprintf("comment of commentID %d not found", id),
+					ErrorMessage: fmt.Sprintf("comment of commentID %d not found", idC),
 				}
 				statusCode = http.StatusNotFound
 			default:
@@ -62,8 +65,10 @@ func getCommentID(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
+
 //getComment returns a handler forGET  /posts/{postID}/comments?sort=time
-func getComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+//TODO i don't know how to handle this query yet
+func getComments(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
@@ -105,31 +110,51 @@ func getComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//postComment return the handler for POST  /posts/{postID}/comments
+//postComment returns the handler for POST  /posts/{postID}/comments
 func postComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
-		commenter := vars["commenter"]
-		//postID := vars["postID"]
-		{ // this block secures the route
-			if commenter != r.Header.Get("authorized_User") {
-				d.Logger.Log("unauthorized user comment request")
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-		}
 
-		newComment := new(comment.Comment)
+		//{ // this block secures the route
+		//	if commenter != r.Header.Get("authorized_User") {
+		//		d.Logger.Log("unauthorized user comment request")
+		//		w.WriteHeader(http.StatusUnauthorized)
+		//		return
+		//	}
+		//}'
+		newComment := comment.Comment{}
 		{ // checks if requests uses forms or JSON and parses then
-			newComment.Commenter= r.FormValue("username")
-			if newComment.Commenter!= "" {
+			newComment.Content = r.FormValue("content")
+			if newComment.Content != "" {
 				newComment.Content = r.FormValue("content")
-				//i don't know if i should add more
-				newComment.OriginPost = r.FormValue("originPost")
-				newComment.ReplyTo = r.FormValue("replyTo")
+				newComment.Commenter = r.FormValue("commenter")
+				idr := r.FormValue("replyTo")
+				a, errrt := strconv.Atoi(idr)
+				newComment.ReplyTo = a
+				if errrt != nil {
+					d.Logger.Log("fetch attempt of non invalid type of replyto ID %s", idr)
+					response.Data = jSendFailData{
+						ErrorReason:  "replyTo ID",
+						ErrorMessage: fmt.Sprintf("invalid replyto %d", idr),
+					}
+					statusCode = http.StatusBadRequest
+				}
+				ido := r.FormValue(("originPost"))
+				b, errop := strconv.Atoi((ido))
+				newComment.OriginPost = b
+				if errop != nil {
+					d.Logger.Log("fetch attempt of non invalid type of originPost ID %s", ido)
+					response.Data = jSendFailData{
+						ErrorReason:  "originPost ID",
+						ErrorMessage: fmt.Sprintf("invalid originPost %d", ido),
+					}
+					statusCode = http.StatusBadRequest
+				}
+
+				//newComment.OriginPost = r.FormValue("originPost")
+				//newComment.ReplyTo = r.FormValue("replyTo")
 			} else {
 				err := json.NewDecoder(r.Body).Decode(newComment)
 				if err != nil {
@@ -150,45 +175,148 @@ func postComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		if response.Data == nil {
 
-			if newComment.Commenter == "" {
+			if newComment.Content == "" {
 				response.Data = jSendFailData{
-					ErrorReason:  "username",
-					ErrorMessage: "username is required",
+					ErrorReason:  "content",
+					ErrorMessage: "content is required",
 				}
 			}
-			if newComment.OriginPost == "" {
+
+		} else {
+			//TODO do we limit content
+			if len(newComment.Content) > 100 || len(newComment.Content) < 1 {
 				response.Data = jSendFailData{
-					ErrorReason:  "username",
-					ErrorMessage: "username is required",
+					ErrorReason:  "conent",
+					ErrorMessage: "content length shouldn't be shorter that 1 and longer than 100 chars",
 				}
 			}
+		}
+		if response.Data == nil {
+			d.Logger.Log("trying to add comment %s", newComment.Content)
+			err := d.CommentService.AddComment(&newComment)
+			switch err {
+			case nil:
+				response.Status = "success"
+				response.Data = newComment
+				d.Logger.Log("success adding comment %s", newComment.Content)
+			default:
+
+				d.Logger.Log("adding of comment failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when adding comment"
+				statusCode = http.StatusInternalServerError
+			}
+		} else {
+			// if required fields aren't present
+			d.Logger.Log("bad adding comment request")
+			statusCode = http.StatusBadRequest
+		}
+
+		writeResponseToWriter(response, w, statusCode)
+
+	}
+
+}
+
+//patchComment returns the handler PATCH  /posts/{postID}/comments/{commentID}
+func patchComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+		vars := mux.Vars(r)
+		idRaw := vars["commentID"]
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Log("fetch attempt of non invalid type of comment ID %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "commentID",
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", idRaw),
+			}
+			statusCode = http.StatusBadRequest
+		}
+
+		newComment := new(comment.Comment)
+		erro := json.NewDecoder(r.Body).Decode(newComment)
+		if erro != nil {
+			response.Data = jSendFailData{
+				ErrorReason: "request format",
+				ErrorMessage: `bad request, use format
+			{"content":"username len 5-22 chars",
+			"originPost":"channel",
+			"replyId":"title",
+			"commenter":"commenter"
+			}`,
+			}
+			d.Logger.Log("bad update comment request")
+			statusCode = http.StatusBadRequest
+		}
+		if response.Data == nil {
+			// if JSON parsing doesn't fail
+
+			if newComment.Content == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "request",
+					ErrorMessage: "request doesn't contain updatable data",
+				}
+				statusCode = http.StatusBadRequest
 			} else {
-				if len(newComment.Commenter) > 22 || len(newComment.Commenter) < 5 {
-					response.Data = jSendFailData{
-						ErrorReason:  "username",
-						ErrorMessage: "username length shouldn't be shorter that 5 and longer than 22 chars",
-					}
-				}
-			}
-			if response.Data == nil {
-				d.Logger.Log("trying to add comment %s", newComment.Commenter,newComment.Content, newComment.OriginPost)
-				com, err := d.CommentService.AddComment(newComment)
-				switch err {
+				erron := d.CommentService.UpdateComment(newComment, id)
+				switch erron {
 				case nil:
+					d.Logger.Log("success patch post %s", newComment.Content)
 					response.Status = "success"
-					response.Data = *com
-					d.Logger.Log("success adding user %s", com.Commenter, com.Content, com.OriginPost)
+					response.Data = *newComment
+
 				default:
-					_ = d.CommentService.DeletePost(com.ID)
 					d.Logger.Log("adding of comment failed because: %v", err)
 					response.Status = "error"
 					response.Message = "server error when adding comment"
 					statusCode = http.StatusInternalServerError
 				}
-			} else {
-				// if required fields aren't present
-				d.Logger.Log("bad adding user request")
-				statusCode = http.StatusBadRequest
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+//deleteComment returns the handlers for DELETE  /posts/{postID}/comments/{commentID}
+func deleteComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+
+		vars := mux.Vars(r)
+		idRaw := vars["commentID"]
+
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Log("delete attempt of non invalid post id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "commentID",
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", id),
+			}
+			statusCode = http.StatusBadRequest
+		} else {
+			d.Logger.Log("trying to delete Comment %d", id)
+			err := d.CommentService.DeleteComment(id)
+			switch err {
+			case nil:
+				response.Status = "success"
+				d.Logger.Log("success deleting Comment %d", id)
+			case comment.ErrCommentNotFound:
+				d.Logger.Log("deletion of Post failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "commentID",
+					ErrorMessage: fmt.Sprintf("Comment of id %d not found", id),
+				}
+				statusCode = http.StatusNotFound
+
+			default:
+				response.Status = "error"
+				response.Message = "server error when adding Post"
+				statusCode = http.StatusInternalServerError
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
@@ -197,55 +325,54 @@ func postComment(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
-//PATCH  /posts/{postID}/comments/{commentID}
-//DELETE  /posts/{postID}/comments/{commentID}
-//GET  getReplyCommentID returns a handler for /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
-func getReplyCommentID(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+//GET  getReply returns a handler for /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
+func getReply(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-
 		vars := mux.Vars(r)
-		idRaw := vars["id"]
-		rootCommentIDRaw :=vars["rootCommentID"]
-		c.ReplyTo, err = strconv.Atoi(rootCommentIDRaw)
-
-		if err != nil{
-			c.ReplyTo =-1
+		c := new(comment.Comment)
+		rootCommentIDRaw := vars["rootCommentID"]
+		e, erre := strconv.Atoi(rootCommentIDRaw)
+		c.ReplyTo = e
+		if erre != nil {
+			c.ReplyTo = -1
 		}
-		commenter := vars["commenter"]
-		//postID := vars["postID"]
-		id, err := strconv.Atoi(idRaw)
+		commentID := vars["commentID"]
+
 		{ // this block secures the route
-			if commenter != r.Header.Get("authorized_User") {
+			//TODO
+			if commentID != r.Header.Get("authorized_User") {
 				d.Logger.Log("unauthorized post comment request")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 		}
+
+		idC, err := strconv.Atoi(commentID)
+
 		if err != nil {
-			d.Logger.Log("fetch attempt of non invalid comment id %s", idRaw)
+			d.Logger.Log("fetch attempt of non invalid type of comment ID %s", idC)
 			response.Data = jSendFailData{
 				ErrorReason:  "commentID",
-				ErrorMessage: fmt.Sprintf("invalid commentID %d", id),
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", idC),
 			}
 			statusCode = http.StatusBadRequest
 		}
 
 		if response.Data == nil {
-			d.Logger.Log("trying to fetch Comment %d", id)
-			rel, err := d.CommentService.GetComment(id)
+			d.Logger.Log("trying to fetch Comment %d", idC)
+			rel, err := d.CommentService.GetReply(idC)
 			switch err {
 			case nil:
 				response.Status = "success"
 				response.Data = *rel
-				d.Logger.Log("success fetching comment %d", id)
+				d.Logger.Log("success fetching comment %d", idC)
 			case comment.ErrCommentNotFound:
 				response.Data = jSendFailData{
 					ErrorReason:  "commentID",
-					ErrorMessage: fmt.Sprintf("comment of commentID %d not found", id),
+					ErrorMessage: fmt.Sprintf("comment of commentID %d not found", idC),
 				}
 				statusCode = http.StatusNotFound
 			default:
@@ -259,8 +386,241 @@ func getReplyCommentID(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-//GET  /posts/{postID}/comments/{rootCommentID}/replies/?sort=time
-//POST  /posts/{postID}/comments/{rootCommentID}/replies
-//PATCH  /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
-//DELETE  /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
 
+//GET  /posts/{postID}/comments/{rootCommentID}/replies/?sort=time
+//TODO
+//addReply returns the handler for POST  /posts/{postID}/comments/{rootCommentID}/replies
+func addReply(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+
+		//{ // this block secures the route
+		//	if commenter != r.Header.Get("authorized_User") {
+		//		d.Logger.Log("unauthorized user comment request")
+		//		w.WriteHeader(http.StatusUnauthorized)
+		//		return
+		//	}
+		//}'
+		newComment := comment.Comment{}
+		vars := mux.Vars(r)
+		rootCommentIDRaw := vars["rootCommentID"]
+		e, erre := strconv.Atoi(rootCommentIDRaw)
+		newComment.ReplyTo = e
+		if erre != nil {
+			newComment.ReplyTo = -1
+		}
+		{ // checks if requests uses forms or JSON and parses then
+			newComment.Content = r.FormValue("content")
+			if newComment.Content != "" {
+				newComment.Content = r.FormValue("content")
+				newComment.Commenter = r.FormValue("commenter")
+				idr := r.FormValue("replyTo")
+				a, errrt := strconv.Atoi(idr)
+				newComment.ReplyTo = a
+				if errrt != nil {
+					d.Logger.Log("fetch attempt of non invalid type of replyto ID %s", idr)
+					response.Data = jSendFailData{
+						ErrorReason:  "replyTo ID",
+						ErrorMessage: fmt.Sprintf("invalid replyto %d", idr),
+					}
+					statusCode = http.StatusBadRequest
+				}
+				ido := r.FormValue("originPost")
+				b, errop := strconv.Atoi(ido)
+				newComment.OriginPost = b
+				if errop != nil {
+					d.Logger.Log("fetch attempt of non invalid type of originPost ID %s", ido)
+					response.Data = jSendFailData{
+						ErrorReason:  "originPost ID",
+						ErrorMessage: fmt.Sprintf("invalid originPost %d", ido),
+					}
+					statusCode = http.StatusBadRequest
+				}
+
+				//newComment.OriginPost = r.FormValue("originPost")
+				//newComment.ReplyTo = r.FormValue("replyTo")
+			} else {
+				err := json.NewDecoder(r.Body).Decode(newComment)
+				if err != nil {
+					response.Data = jSendFailData{
+						ErrorReason: "request format",
+						ErrorMessage: `bad request, use format
+				{"originPost":"originPost",
+				"commenter":"commenter",
+				"content":"content",
+				"replyTo":"replyTo"
+				}`,
+					}
+					d.Logger.Log("bad update post request")
+					statusCode = http.StatusBadRequest
+				}
+			}
+		}
+
+		if response.Data == nil {
+
+			if newComment.Content == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "content",
+					ErrorMessage: "content is required",
+				}
+			}
+
+		} else {
+			//TODO do we limit content
+			if len(newComment.Content) > 100 || len(newComment.Content) < 1 {
+				response.Data = jSendFailData{
+					ErrorReason:  "content",
+					ErrorMessage: "content length shouldn't be shorter that 1 and longer than 100 chars",
+				}
+			}
+		}
+		if response.Data == nil {
+			d.Logger.Log("trying to add comment %s", newComment.Content)
+			err := d.CommentService.AddReply(&newComment)
+			switch err {
+			case nil:
+				response.Status = "success"
+				response.Data = newComment
+				d.Logger.Log("success adding comment %s", newComment.Content)
+			default:
+
+				d.Logger.Log("adding of comment failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when adding comment"
+				statusCode = http.StatusInternalServerError
+			}
+		} else {
+			// if required fields aren't present
+			d.Logger.Log("bad adding comment request")
+			statusCode = http.StatusBadRequest
+		}
+
+		writeResponseToWriter(response, w, statusCode)
+
+	}
+
+}
+
+//patchReply returns the handler for PATCH  /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
+func patchReply(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+		vars := mux.Vars(r)
+		c := new(comment.Comment)
+		rootCommentIDRaw := vars["rootCommentID"]
+		e, erre := strconv.Atoi(rootCommentIDRaw)
+		c.ReplyTo = e
+		if erre != nil {
+			c.ReplyTo = -1
+		}
+		idRaw := vars["commentID"]
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Log("fetch attempt of non invalid type of comment ID %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "commentID",
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", idRaw),
+			}
+			statusCode = http.StatusBadRequest
+		}
+
+		newComment := new(comment.Comment)
+		erro := json.NewDecoder(r.Body).Decode(newComment)
+		if erro != nil {
+			response.Data = jSendFailData{
+				ErrorReason: "request format",
+				ErrorMessage: `bad request, use format
+			{"content":"username len 5-22 chars",
+			"originPost":"channel",
+			"replyId":"title",
+			"commenter":"commenter"
+			}`,
+			}
+			d.Logger.Log("bad update comment request")
+			statusCode = http.StatusBadRequest
+		}
+		if response.Data == nil {
+			// if JSON parsing doesn't fail
+
+			if newComment.Content == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "request",
+					ErrorMessage: "request doesn't contain updatable data",
+				}
+				statusCode = http.StatusBadRequest
+			} else {
+				erron := d.CommentService.UpdateReply(newComment, id)
+				switch erron {
+				case nil:
+					d.Logger.Log("success patch post %s", newComment.Content)
+					response.Status = "success"
+					response.Data = *newComment
+
+				default:
+					d.Logger.Log("adding of comment failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when adding comment"
+					statusCode = http.StatusInternalServerError
+				}
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+//deleteReply returns the handler for DELETE  /posts/{postID}/comments/{rootCommentID}/replies/{commentID}
+func deleteReply(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+
+		vars := mux.Vars(r)
+		idRaw := vars["commentID"]
+		c := new(comment.Comment)
+		rootCommentIDRaw := vars["rootCommentID"]
+		e, erre := strconv.Atoi(rootCommentIDRaw)
+		c.ReplyTo = e
+		if erre != nil {
+			c.ReplyTo = -1
+		}
+
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Log("delete attempt of non invalid post id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "commentID",
+				ErrorMessage: fmt.Sprintf("invalid commentID %d", id),
+			}
+			statusCode = http.StatusBadRequest
+		} else {
+			d.Logger.Log("trying to delete Comment %d", id)
+			err := d.CommentService.DeleteReply(id)
+			switch err {
+			case nil:
+				response.Status = "success"
+				d.Logger.Log("success deleting Comment %d", id)
+			case comment.ErrCommentNotFound:
+				d.Logger.Log("deletion of Post failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "commentID",
+					ErrorMessage: fmt.Sprintf("Comment of id %d not found", id),
+				}
+				statusCode = http.StatusNotFound
+
+			default:
+				response.Status = "error"
+				response.Message = "server error when adding Post"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+
+	}
+
+}

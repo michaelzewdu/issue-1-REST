@@ -7,14 +7,14 @@ import "time"
 // replyTo is either and id of another comment or -1 if
 // it's a reply to original post.
 type Comment struct {
-	ID           uint      `json:"id"`
-	OriginPost   uint      `json:"originpost"`
+	ID           int       `json:"id"`
+	OriginPost   int       `json:"originpost"`
 	Commenter    string    `json:"comment"`
 	Content      string    `json:"content"`
-	ReplyTo      uint      `json:"replyto"`
+	ReplyTo      int       `json:"replyto"`
 	CreationTime time.Time `json:"creationtime"`
 }
 
 type Post struct {
-	ID int
+	ID int `json:"id"`
 }

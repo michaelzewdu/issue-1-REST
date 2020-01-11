@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,27 +20,29 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
 
-/*
-// Logger ...
+//Logger ...
 type Logger interface {
 	Log(format string, a ...interface{})
 }
-*/
+
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
 	Dependencies
+	Logger
 }
 
 // Dependencies contains dependencies used by the handlers.
 type Dependencies struct {
-	StrictSanitizer *bluemonday.Policy
-	MarkupSanitizer *bluemonday.Policy
-	UserService     user.Service
-	FeedService     feed.Service
-	ReleaseService  release.Service
-	jwtBackend      *JWTAuthenticationBackend
-	Logger          *log.Logger
+	//StrictSanitizer *bluemonday.Policy
+	//MarkupSanitizer *bluemonday.Policy
+	UserService    user.Service
+	FeedService    feed.Service
+	CommentService comment.Service
+
+	ReleaseService release.Service
+	jwtBackend     *JWTAuthenticationBackend
+	Logger         *log.Logger
 }
 
 // Config contains the different settings used to set up the handlers
@@ -108,7 +111,7 @@ func attachCommentRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *S
 	mainRouter.HandleFunc("/posts/{postID}/comments?sort=time", getComments(setup)).Methods("GET")
 	//TODO secure these routes
 	secureRouter.HandleFunc("/posts/{postID}/comments", postComment(setup)).Methods("POST")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", updateComment(setup)).Methods("PATCH")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", patchComment(setup)).Methods("PATCH")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", deleteComment(setup)).Methods("DELETE")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", getReply(setup)).Methods("GET")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/?sort=time", getReplys(setup)).Methods("GET")
