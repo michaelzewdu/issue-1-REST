@@ -115,8 +115,8 @@ func attachCommentRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *S
 	secureRouter.HandleFunc("/posts/{postID}/comments/{commentID}", deleteComment(setup)).Methods("DELETE")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", getReply(setup)).Methods("GET")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/?sort=time", getReplys(setup)).Methods("GET")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies", postReply(setup)).Methods("POST")
-	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", updateReply(setup)).Methods("PATCH")
+	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies", patchReply(setup)).Methods("PATCH")
+	//secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", updateReply(setup)).Methods("PATCH")
 	secureRouter.HandleFunc("/posts/{postID}/comments/{rootCommentID}/replies/{commentID}", deleteReply(setup)).Methods("DELETE")
 }
 
