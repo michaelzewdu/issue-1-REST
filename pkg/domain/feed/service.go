@@ -68,7 +68,7 @@ var ErrFeedNotFound = fmt.Errorf("feed not found")
 // ErrChannelNotFound is returned when the specified channel does not exist
 var ErrChannelNotFound = fmt.Errorf("channel does not exist found")
 
-//var UserDoesNotExist = fmt.Errorf("user does not exist found")
+//var ErrUserDoesNotExist = fmt.Errorf("user does not exist found")
 
 type service struct {
 	allServices *map[string]interface{}

@@ -45,7 +45,7 @@ func ParseAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 				}
 			}
 			// if not valid
-			r.Header.Set("authorized_username", "HerUsernameIs23LettersL")
+			r.Header.Set("authorized_username", "HerUsernameIs25LettersLng")
 			r.Header.Del("authorized_username_expired")
 			next.ServeHTTP(w, r)
 		})
@@ -69,7 +69,7 @@ func CheckForAuthMiddleware(s *Setup) func(next http.Handler) http.Handler {
 
 func isAuthenticated(r *http.Request, s *Setup) bool {
 	authUsername := r.Header.Get("authorized_username")
-	if authUsername != "" && len(authUsername) < 23 {
+	if authUsername != "" && len(authUsername) < 25 {
 		return true
 	}
 	return false
@@ -93,35 +93,44 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			statusCode = http.StatusBadRequest
 		} else {
 			success, err := s.jwtBackend.Authenticate(requestUser)
-			if err != nil {
-				s.Logger.Printf("auth failed because: %v", err)
-				response.Status = "error"
-				response.Message = "server error when generating token"
-				statusCode = http.StatusInternalServerError
-			}
-			if success {
-				tokenString, err := s.jwtBackend.GenerateToken(requestUser.Username)
-				if err != nil {
-					s.Logger.Printf("token generation failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when authenticating"
-					statusCode = http.StatusInternalServerError
-				} else {
-					response.Status = "success"
-					var responseData struct {
-						Data string `json:"token"`
+			switch err {
+			case nil:
+				if success {
+					tokenString, err := s.jwtBackend.GenerateToken(requestUser.Username)
+					if err != nil {
+						s.Logger.Printf("token generation failed because: %v", err)
+						response.Status = "error"
+						response.Message = "server error when authenticating"
+						statusCode = http.StatusInternalServerError
+					} else {
+						response.Status = "success"
+						var responseData struct {
+							Data string `json:"token"`
+						}
+						responseData.Data = tokenString
+						response.Data = responseData
+						s.Logger.Printf("user %s got token", requestUser.Username)
 					}
-					responseData.Data = tokenString
-					response.Data = responseData
-					s.Logger.Printf("user %s got token", requestUser.Username)
+				} else {
+					s.Logger.Printf("unsuccessful authentication attempt on nonexisting user")
+					response.Data = jSendFailData{
+						ErrorReason:  "credentials",
+						ErrorMessage: "incorrect username or password",
+					}
+					statusCode = http.StatusUnauthorized
 				}
-			} else {
+			case user.ErrUserNotFound:
 				s.Logger.Printf("unsuccessful authentication attempt")
 				response.Data = jSendFailData{
 					ErrorReason:  "credentials",
 					ErrorMessage: "incorrect username or password",
 				}
 				statusCode = http.StatusUnauthorized
+			default:
+				s.Logger.Printf("auth failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when generating token"
+				statusCode = http.StatusInternalServerError
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)

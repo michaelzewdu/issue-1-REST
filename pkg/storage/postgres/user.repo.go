@@ -189,7 +189,6 @@ func (repo *userRepository) execUpdateStatementOnColumn(column, value, username 
 // DeleteUser deletes a user based on the passed in username.
 // If deletion is successful, it also tries to delete the user from its cache.
 func (repo *userRepository) DeleteUser(username string) error {
-	// TODO
 	_, err := repo.db.Exec(`DELETE FROM users
 							WHERE username = $1`, username)
 	if err != nil {

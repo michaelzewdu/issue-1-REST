@@ -159,9 +159,9 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 				ORDER BY creation_time DESC NULLS LAST
 				) AS LP (post_id)
 				LEFT JOIN
-				(SELECT post_id, COALESCE(COUNT(*), 0)
+				(SELECT post_from, COALESCE(COUNT(*), 0)
 				 FROM comments
-				 GROUP BY post_id
+				 GROUP BY post_from
 				) AS PS (post_id, comment_count) ON LP.post_id = PS.post_id
 			ORDER BY creation_time DESC, comment_count DESC
 		) AS F
