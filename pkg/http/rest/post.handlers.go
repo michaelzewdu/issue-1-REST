@@ -301,138 +301,138 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 // GET: /posts/:id/releases/
 // getPostReleases returns a handler for GET: /posts/:id/releases requests ---{getPost,getPostReleases}
-// func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		var response jSendResponse
-// 		response.Status = "fail"
-// 		statusCode := http.StatusOK
+/*func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
 
-// 		vars := mux.Vars(r)
-// 		idRaw := vars["id"]
-// 		id, err := strconv.Atoi(idRaw)
-// 		if err != nil {
-// 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
-// 			response.Data = jSendFailData{
-// 				ErrorReason:  "postID",
-// 				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
-// 			}
-// 			statusCode = http.StatusBadRequest
-// 		}
+		vars := mux.Vars(r)
+		idRaw := vars["id"]
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "postID",
+				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
+			}
+			statusCode = http.StatusBadRequest
+		}
 
-// 		if response.Data == nil {
-// 			d.Logger.Printf("trying to fetch Post %d", id)
-// 			pos, err := d.PostService.GetPost(id)
-// 			switch err {
-// 			case nil:
-// 				response.Status = "success"
-// 				response.Data = *pos
-// 				d.Logger.Printf("success fetching post %d", id)
-// 				rel, erro := d.PostService.GetPostReleases(pos)
-// 				switch erro {
-// 				case nil:
-// 					response.Status = "success"
-// 					response.Data = rel
-// 					d.Logger.Printf("success fetching release %d", id)
-// 				default:
-// 					d.Logger.Printf("fetching of releases failed because: %v", err)
-// 					response.Status = "error"
-// 					response.Message = "server error when fetching releases of post"
-// 					statusCode = http.StatusInternalServerError
-// 				}
+		if response.Data == nil {
+			d.Logger.Printf("trying to fetch Post %d", id)
+			pos, err := d.PostService.GetPost(id)
+			switch err {
+			case nil:
+				response.Status = "success"
+				response.Data = *pos
+				d.Logger.Printf("success fetching post %d", id)
+				rel, erro := d.PostService.GetPostReleases(pos)
+				switch erro {
+				case nil:
+					response.Status = "success"
+					response.Data = rel
+					d.Logger.Printf("success fetching release %d", id)
+				default:
+					d.Logger.Printf("fetching of releases failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when fetching releases of post"
+					statusCode = http.StatusInternalServerError
+				}
 
-// 			case post.ErrPostNotFound:
-// 				response.Data = jSendFailData{
-// 					ErrorReason:  "postID",
-// 					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
-// 				}
-// 				statusCode = http.StatusNotFound
-// 			default:
-// 				d.Logger.Printf("fetching of post failed because: %v", err)
-// 				response.Status = "error"
-// 				response.Message = "server error when fetching post"
-// 				statusCode = http.StatusInternalServerError
+			case post.ErrPostNotFound:
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				d.Logger.Printf("fetching of post failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when fetching post"
+				statusCode = http.StatusInternalServerError
 
-// 			}
-// 		}
-// 		writeResponseToWriter(response, w, statusCode)
-// 	}
-// }
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}*/
 
 // GET: /posts/:id/releases/:release_id
 // getPostRelease returns a handler for GET: /posts/:id/releases/:rId requests ---{getPost,getPostRelease}
-// func getPostRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		var response jSendResponse
-// 		response.Status = "fail"
-// 		statusCode := http.StatusOK
+/*func getPostRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
 
-// 		vars := mux.Vars(r)
-// 		idRaw := vars["id"]
-// 		rIdRaw := vars["rId"]
+		vars := mux.Vars(r)
+		idRaw := vars["id"]
+		rIdRaw := vars["rId"]
 
-// 		id, err := strconv.Atoi(idRaw)
-// 		if err != nil {
-// 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
-// 			response.Data = jSendFailData{
-// 				ErrorReason:  "postID",
-// 				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
-// 			}
-// 			statusCode = http.StatusBadRequest
-// 		}
-// 		rId, erro := strconv.Atoi(idRaw)
-// 		if erro != nil {
-// 			d.Logger.Printf("fetch attempt of non invalid release of post id %s", rIdRaw)
-// 			response.Data = jSendFailData{
-// 				ErrorReason:  "releaseeID",
-// 				ErrorMessage: fmt.Sprintf("invalid releaseID %d", rId),
-// 			}
-// 			statusCode = http.StatusBadRequest
-// 		}
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "postID",
+				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
+			}
+			statusCode = http.StatusBadRequest
+		}
+		rId, erro := strconv.Atoi(idRaw)
+		if erro != nil {
+			d.Logger.Printf("fetch attempt of non invalid release of post id %s", rIdRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "releaseeID",
+				ErrorMessage: fmt.Sprintf("invalid releaseID %d", rId),
+			}
+			statusCode = http.StatusBadRequest
+		}
 
-// 		if response.Data == nil {
-// 			d.Logger.Printf("trying to fetch Post %d", id)
-// 			pos, err := d.PostService.GetPost(id)
-// 			switch err {
-// 			case nil:
-// 				response.Status = "success"
-// 				response.Data = *pos
-// 				d.Logger.Printf("success fetching post %d", id)
-// 				rel, erro := d.PostService.GetPostRelease(pos.ID, rId)
-// 				switch erro {
-// 				case nil:
-// 					response.Status = "success"
-// 					response.Data = *rel
-// 					d.Logger.Printf("success fetching release %d", rId)
-// 				case post.ErrReleaseNotFound:
-// 					response.Data = jSendFailData{
-// 						ErrorReason:  "releaseID",
-// 						ErrorMessage: fmt.Sprintf("release of releaseID %d not found", rId),
-// 					}
-// 					statusCode = http.StatusNotFound
-// 				default:
-// 					d.Logger.Printf("fetching of releases failed because: %v", err)
-// 					response.Status = "error"
-// 					response.Message = "server error when fetching releases of post"
-// 					statusCode = http.StatusInternalServerError
-// 				}
+		if response.Data == nil {
+			d.Logger.Printf("trying to fetch Post %d", id)
+			pos, err := d.PostService.GetPost(id)
+			switch err {
+			case nil:
+				response.Status = "success"
+				response.Data = *pos
+				d.Logger.Printf("success fetching post %d", id)
+				rel, erro := d.PostService.GetPostRelease(pos.ID, rId)
+				switch erro {
+				case nil:
+					response.Status = "success"
+					response.Data = *rel
+					d.Logger.Printf("success fetching release %d", rId)
+				case post.ErrReleaseNotFound:
+					response.Data = jSendFailData{
+						ErrorReason:  "releaseID",
+						ErrorMessage: fmt.Sprintf("release of releaseID %d not found", rId),
+					}
+					statusCode = http.StatusNotFound
+				default:
+					d.Logger.Printf("fetching of releases failed because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when fetching releases of post"
+					statusCode = http.StatusInternalServerError
+				}
 
-// 			case post.ErrPostNotFound:
-// 				response.Data = jSendFailData{
-// 					ErrorReason:  "postID",
-// 					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
-// 				}
-// 				statusCode = http.StatusNotFound
-// 			default:
-// 				d.Logger.Printf("fetching of post failed because: %v", err)
-// 				response.Status = "error"
-// 				response.Message = "server error when fetching post"
-// 				statusCode = http.StatusInternalServerError
+			case post.ErrPostNotFound:
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				d.Logger.Printf("fetching of post failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when fetching post"
+				statusCode = http.StatusInternalServerError
 
-// 			}
-// 		}
-// 		writeResponseToWriter(response, w, statusCode)
-// 	}
-// }
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}*/
 
 // PUT: /posts/:id/stars
 
