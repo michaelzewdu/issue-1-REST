@@ -3,16 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
-
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
-
-	"github.com/microcosm-cc/bluemonday"
-
-	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/http/rest"
-
 	"log"
 	"net/http"
 	"os"
@@ -127,6 +123,14 @@ func main() {
 		setup.PostService = post.NewService(&postCacheRepo)
 		services["Post"] = &setup.PostService
 	}
+	{
+		var commentDBRepo = postgres.NewRepository(db, &dbRepos)
+		dbRepos["Comment"] = &commentDBRepo
+		var commentCacheRepo = memory.NewRepository(&commentDBRepo)
+		cacheRepos["Comment"] = &commentCacheRepo
+		setup.CommentService = comment.NewService(&commentCacheRepo)
+		services["Comment"] = &setup.CommentService
+	}
 
 	setup.ImageServingRoute = "/images/"
 	setup.ImageStoragePath = "data/images/"
@@ -146,5 +150,8 @@ func main() {
 	mux := rest.NewMux(&setup)
 
 	setup.Logger.Printf("server running...")
+
+	//log.Fatal(http.ListenAndServeTLS(":"+setup.Port, "cmd/server/cert.pem", "cmd/server/key.pem",mux))
+
 	log.Fatal(http.ListenAndServe(":"+setup.Port, mux))
 }

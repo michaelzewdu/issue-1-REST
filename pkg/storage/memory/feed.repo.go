@@ -28,8 +28,8 @@ func (repo *feedRepository) GetFeed(username string) (*feed.Feed, error) {
 			return nil, err
 		}
 	}
-	user := repo.cache[username]
-	return &user, nil
+	f := repo.cache[username]
+	return &f, nil
 }
 
 //GetChannels directly calls the same method on the secondary repos it wraps to
