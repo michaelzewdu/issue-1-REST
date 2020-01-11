@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
@@ -114,6 +115,14 @@ func main() {
 		setup.ReleaseService = release.NewService(&releaseCacheRepo)
 		services["Release"] = &setup.ReleaseService
 	}
+	{
+		var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
+		dbRepos["Comment"] = &commentDBRepo
+		var commentCacheRepo = memory.NewCommentRepository(&commentDBRepo, &cacheRepos)
+		cacheRepos["Comment"] = &commentCacheRepo
+		setup.CommentService = comment.NewService(&commentCacheRepo)
+		services["Comment"] = &setup.CommentService
+	}
 
 	setup.ImageServingRoute = "/images/"
 	setup.ImageStoragePath = "data/images/"
@@ -122,9 +131,9 @@ func main() {
 
 	setup.HostAddress += ":" + setup.Port
 
-	setup.StrictSanitizer = bluemonday.StrictPolicy()
-	setup.MarkupSanitizer = bluemonday.UGCPolicy()
-	setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
+	//setup.StrictSanitizer = bluemonday.StrictPolicy()
+	//setup.MarkupSanitizer = bluemonday.UGCPolicy()
+	//setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
 
 	setup.TokenSigningSecret = []byte("secret")
 	setup.TokenAccessLifetime = 15 * time.Minute
