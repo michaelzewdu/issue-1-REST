@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,12 +20,11 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
 
-/*
 // Logger ...
-type Logger interface {
-	Log(format string, a ...interface{})
-}
-*/
+//type Logger interface {
+//	Log(format string, a ...interface{})
+//}
+
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
@@ -37,6 +37,7 @@ type Dependencies struct {
 	MarkupSanitizer *bluemonday.Policy
 	UserService     user.Service
 	FeedService     feed.Service
+	ChannelService  channel.Service
 	ReleaseService  release.Service
 	jwtBackend      *JWTAuthenticationBackend
 	Logger          *log.Logger
@@ -67,6 +68,7 @@ func NewMux(s *Setup) *mux.Router {
 	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
 	attachUserRoutesToRouters(mainRouter, secureRouter, s)
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
+	attachChannelRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
 
 	return mainRouter
@@ -111,6 +113,35 @@ func attachReleaseRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *S
 	secureRouter.HandleFunc("/releases/{id}", getRelease(setup)).Methods("GET")
 	secureRouter.HandleFunc("/releases/{id}", putRelease(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/releases/{id}", deleteRelease(setup)).Methods("DELETE")
+}
+func attachChannelRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/channels", postChannel(setup)).Methods("POST")
+	mainRouter.HandleFunc("/channels", getChannels(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}", getChannel(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}", putChannel(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}", deleteChannel(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/channels/{channelUsername}/admins", getAdmins(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/admins/{adminUsername}", putAdmin(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/admins/{adminUsername}", deleteAdmin(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/channels/{channelUsername}/owners", getOwner(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/owners/{ownerUsername}", putOwner(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/Posts", getPosts(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/Posts/{postID}", getPost(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/catalog", getCatalog(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/catalogs/{catalogID}", deleteReleaseFromCatalog(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/channels/{channelUsername}/official/{catalogID}", deleteReleaseFromOfficialCatalog(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/channels/{channelUsername}/catalogs/{catalogID}", getReleaseFromCatalog(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/official", getOfficialCatalog(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/catalogs/{catalogID}", putReleaseInCatalog(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/catalogs}", postReleaseInCatalog(setup)).Methods("POST")
+	mainRouter.HandleFunc("/channels/{channelUsername}/official/{catalogID}", putReleaseInOfficialCatalog(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/Posts/stickiedPosts", getStickiedPosts(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/Posts/{postID}", stickyPost(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/Posts/stickiedPosts/{stickiedPostID}", deleteStickiedPost(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/channels/{channelUsername}/picture", putChannelPicture(setup)).Methods("PUT")
+	mainRouter.HandleFunc("/channels/{channelUsername}/picture", getChannelPicture(setup)).Methods("GET")
+	mainRouter.HandleFunc("/channels/{channelUsername}/picture", deleteChannelPicture(setup)).Methods("DELETE")
+
 }
 
 type jSendResponse struct {

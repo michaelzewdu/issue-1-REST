@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
+	"net/url"
+	"os"
 
 	"strconv"
 	"strings"
@@ -12,199 +14,240 @@ import (
 	"net/http"
 )
 
-func getChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+func sanitizeChannel(c *channel.Channel, s *Setup) {
+	c.ChannelUsername = s.StrictSanitizer.Sanitize(c.ChannelUsername)
+	c.Name = s.StrictSanitizer.Sanitize(c.Name)
+	c.Description = s.StrictSanitizer.Sanitize(c.Description)
+}
+
+// getChannel returns a handler for GET /channels/{channelUsername} requests
+func getChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 
-		(*logger).Log("trying to fetch channel %s", username)
-		c, err := (*service).GetChannel(username)
+		s.Logger.Printf("trying to fetch channel %s", channelUsername)
+		c, err := s.ChannelService.GetChannel(channelUsername)
 
 		switch err {
 		case nil:
 			response.Status = "success"
 			{
-				//TODO
-				//AUTHORIZATION
+				// this block sanitizes the returned User if it's not the user herself accessing the route
+				if channelUsername != r.Header.Get("username") {
+					s.Logger.Printf("user %s fetched channel %s", r.Header.Get("username"), c.ChannelUsername)
+					c.AdminUsernames = nil
+					c.ReleaseIDs = nil
+					c.OwnerUsername = ""
+					c.AdminUsernames = nil
+
+				}
+			}
+			if c.PictureURL != "" {
+				c.PictureURL = s.HostAddress + s.ImageServingRoute + url.PathEscape(c.PictureURL)
 			}
 			response.Data = *c
-			(*logger).Log("success fetching channel %s", username)
+			s.Logger.Printf("success fetching channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("Fetching of none existent channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("Fetching of none existent channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of username %s not found", username)
-			response.Data = responseData
+
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("Fetching of channel failed because %s", err)
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("Fetching of channel failed because %s", err)
+			response.Data = jSendFailData{
+				ErrorReason:  "Error",
+				ErrorMessage: "server error when fetching channel",
 			}
-			response.Status = "error"
-			responseData.Data = "server error when fetching channel"
-			response.Data = responseData
+
 			statusCode = http.StatusInternalServerError
 		}
 
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func postChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// postChannel returns a handler for POST /channels requests
+func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		c := channel.Channel{}
+		c := new(channel.Channel)
 		{
-			c.Username = r.FormValue("username")
-			if c.Username != "" {
-				c.Name = r.FormValue("description")
+			c.ChannelUsername = r.FormValue("channelUsername")
+			if c.ChannelUsername != "" {
+				c.Name = r.FormValue("name")
 				c.Description = r.FormValue("description")
 			} else {
 				err := json.NewDecoder(r.Body).Decode(&c)
 				if err != nil {
-					var responseData struct {
-						Data string `json:"message"`
-					}
-					responseData.Data = `bad request, use format
-				{"username":"username",
+					response.Data = jSendFailData{
+						ErrorReason: "Bad Request",
+						ErrorMessage: `use format
+				{"channelUsername":"channelUsername",
 		        "name":"name",
-				"description":"description"}`
-					response.Data = responseData
-					(*logger).Log("bad post channel request")
+				"description":"description"}`,
+					}
+
 					statusCode = http.StatusBadRequest
 				}
 			}
 		}
+		sanitizeChannel(c, s)
 		if response.Data == nil {
-			if c.Username == "" {
-				var responseData struct {
-					Data string `json:"username"`
+			if c.ChannelUsername == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: "channelUsername is required",
 				}
-				responseData.Data = "username is required"
-				response.Data = responseData
 			}
 			if c.Name == "" {
-				var responseData struct {
-					Data string `json:"name"`
+				response.Data = jSendFailData{
+					ErrorReason:  "name",
+					ErrorMessage: "name is required",
 				}
-				responseData.Data = "name is required"
-				response.Data = responseData
+
+			} else {
+				if len(c.ChannelUsername) > 24 || len(c.ChannelUsername) < 5 {
+					response.Data = jSendFailData{
+						ErrorReason:  "channelUsername",
+						ErrorMessage: "channelUsername length shouldn't be shorter that 5 and longer than 22 chars",
+					}
+				}
 			}
 
 			if response.Data == nil {
-				(*logger).Log("trying to add channel %s", c.Username, c.Name, c.Description)
+				s.Logger.Printf("trying to add channel %s %s %s ", c.ChannelUsername, c.Name, c.Description)
 				if &c != nil {
-					err := (*service).AddChannel(&c)
+					err := s.ChannelService.AddChannel(c)
 					switch err {
 					case nil:
 						response.Status = "success"
-						(*logger).Log("success adding channel %s", c.Username, c.Name, c.Description)
+						s.Logger.Printf("success adding channel %s %s %s", c.ChannelUsername, c.Name, c.Description)
 					case channel.ErrInvalidChannelData:
-						(*logger).Log("creating of channel failed because: %s", err.Error())
-						var responseData struct {
-							Data string `json:"data"`
+						s.Logger.Printf("creating of channel failed because: %s", err.Error())
+						response.Data = jSendFailData{
+							ErrorReason:  "needed values missing",
+							ErrorMessage: "channel must have name & channelUsername to be created",
 						}
-						responseData.Data = "channel must have name & username to be created"
-						response.Data = responseData
+
 						statusCode = http.StatusBadRequest
 
 					case channel.ErrUserNameOccupied:
-						(*logger).Log("adding of channel failed because: %s", err.Error())
-						var responseData struct {
-							Data string `json:"username"`
+						s.Logger.Printf("adding of channel failed because: %s", err.Error())
+						response.Data = jSendFailData{
+							ErrorReason:  "channelUsername",
+							ErrorMessage: "channelUsername is occupied",
 						}
-						responseData.Data = "username is occupied"
-						response.Data = responseData
+
 						statusCode = http.StatusConflict
 
 					default:
-						(*logger).Log("adding of channel failed because: %s", err.Error())
-						var responseData struct {
-							Data string `json:"message"`
+						_ = s.ChannelService.DeleteChannel(c.ChannelUsername)
+						s.Logger.Printf("adding of channel failed because: %s", err.Error())
+						response.Data = jSendFailData{
+							ErrorReason:  "Server Error",
+							ErrorMessage: "server error when adding channel",
 						}
-						response.Status = "error"
-						responseData.Data = "server error when adding channel"
-						response.Data = responseData
+
 						statusCode = http.StatusInternalServerError
 					}
 				}
 
 			} else {
 				// if required fields aren't present
-				(*logger).Log("bad adding channel request")
+				s.Logger.Printf("bad adding channel request")
 				statusCode = http.StatusBadRequest
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func putChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// putChannel returns a handler for PUT /channels/{channelUsername} requests
+func putChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users updating of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized update channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 		var c channel.Channel
 		err := json.NewDecoder(r.Body).Decode(&c)
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request",
 			}
-			responseData.Data = "bad request"
-			response.Data = responseData
-			(*logger).Log("bad update channel request")
+
+			s.Logger.Printf("bad update channel request")
 			statusCode = http.StatusBadRequest
 		} else {
-			if c.Name == "" && c.Description == "" && c.Username == "" {
-				var responseData struct {
-					Data string `json:"message"`
+			if c.Name == "" && c.Description == "" && c.ChannelUsername == "" {
+				response.Data = jSendFailData{
+					ErrorReason:  "bad request",
+					ErrorMessage: "bad request",
 				}
-				responseData.Data = "bad request"
-				response.Data = responseData
+
 				statusCode = http.StatusBadRequest
 			} else {
-				err := (*service).UpdateChannel(username, &c)
+				err := s.ChannelService.UpdateChannel(channelUsername, &c)
 				switch err {
 				case nil:
-					(*logger).Log("success put channel %s", username)
+					s.Logger.Printf("success put channel %s", channelUsername)
 					response.Status = "success"
 				case channel.ErrUserNameOccupied:
-					(*logger).Log("adding of channel failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"username"`
+					s.Logger.Printf("adding of channel failed because: %s", err.Error())
+					response.Data = jSendFailData{
+						ErrorReason:  "channelUsername",
+						ErrorMessage: "channelUsername is occupied by channel",
 					}
-					responseData.Data = "username is occupied by a channel"
-					response.Data = responseData
+
 					statusCode = http.StatusConflict
 				case channel.ErrInvalidChannelData:
-					(*logger).Log("updating of channel failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"data"`
+					s.Logger.Printf("updating of channel failed because: %s", err.Error())
+					response.Data = jSendFailData{
+						ErrorReason:  "Needed values missing",
+						ErrorMessage: "channel must have name & channelUsername to be created",
 					}
-					responseData.Data = "channel must have name & username to be created"
-					response.Data = responseData
+
 					statusCode = http.StatusBadRequest
 				default:
-					(*logger).Log("update of channel failed because: %s", err.Error())
-					var responseData struct {
-						Data string `json:"message"`
+					s.Logger.Printf("update of channel failed because: %s", err.Error())
+					response.Data = jSendFailData{
+						ErrorReason:  "error",
+						ErrorMessage: "server error when updating channel",
 					}
-					responseData.Data = "server error when updating channel"
-					response.Status = "error"
-					response.Data = responseData
+
 					statusCode = http.StatusInternalServerError
 				}
 			}
@@ -212,7 +255,9 @@ func putChannel(service *channel.Service, logger *Logger) func(w http.ResponseWr
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getChannels(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getChannels returns a handler for GET /channels requests
+func getChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -228,24 +273,22 @@ func getChannels(service *channel.Service, logger *Logger) func(w http.ResponseW
 			if limitPageRaw := r.URL.Query().Get("limit"); limitPageRaw != "" {
 				limit, err = strconv.Atoi(limitPageRaw)
 				if err != nil || limit < 0 {
-					(*logger).Log("bad get channels request, limit")
-					var responseData struct {
-						Data string `json:"limit"`
+					s.Logger.Printf("bad get channels request, limit")
+					response.Data = jSendFailData{
+						ErrorReason:  "limit",
+						ErrorMessage: "bad request, limit can't be negative",
 					}
-					responseData.Data = "bad request, limit can't be negative"
-					response.Data = responseData
 					statusCode = http.StatusBadRequest
 				}
 			}
 			if offsetRaw := r.URL.Query().Get("offset"); offsetRaw != "" {
 				offset, err = strconv.Atoi(offsetRaw)
 				if err != nil || offset < 0 {
-					(*logger).Log("bad request, offset")
-					var responseData struct {
-						Data string `json:"offset"`
+					s.Logger.Printf("bad request, offset")
+					response.Data = jSendFailData{
+						ErrorReason:  "offset",
+						ErrorMessage: "bad request, offset can't be negative",
 					}
-					responseData.Data = "bad request, offset can't be negative"
-					response.Data = responseData
 					statusCode = http.StatusBadRequest
 				}
 			}
@@ -253,7 +296,7 @@ func getChannels(service *channel.Service, logger *Logger) func(w http.ResponseW
 			sortSplit := strings.Split(sort, "_")
 			sortOrder = channel.SortAscending
 			switch sortByQuery := sortSplit[0]; sortByQuery {
-			case "username":
+			case "channelUsername":
 				sortBy = channel.SortByUsername
 			case "name":
 				sortBy = channel.SortByName
@@ -271,190 +314,262 @@ func getChannels(service *channel.Service, logger *Logger) func(w http.ResponseW
 			}
 		}
 		if response.Data == nil {
-			channels, err := (*service).SearchChannels(pattern, sortBy, sortOrder, limit, offset)
+			channels, err := s.ChannelService.SearchChannels(pattern, sortBy, sortOrder, limit, offset)
 			if err != nil {
-				(*logger).Log("fetching of channels failed because: %s", err.Error())
-
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf("fetching of channels failed because: %s", err.Error())
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when getting channels",
 				}
-				response.Status = "error"
-				responseData.Data = "server error when getting channels"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			} else {
 				response.Status = "success"
+				for _, c := range channels {
+					c.AdminUsernames = nil
+					c.ReleaseIDs = nil
+					c.OwnerUsername = ""
+					if c.PictureURL != "" {
+						c.PictureURL = s.HostAddress + s.ImageServingRoute + url.PathEscape(c.PictureURL)
+					}
+				}
 				response.Data = channels
-				(*logger).Log("success fetching channels")
+				s.Logger.Printf("success fetching channels")
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func deleteChannel(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// deleteChannel returns a handler for DELETE /channels/{channelUsername} requests
+func deleteChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		var err error
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
-		}
-		(*logger).Log("trying to delete channel %s", username)
-		err = (*service).DeleteChannel(username)
-		if err != nil {
-			(*logger).Log("deletion of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"username"`
+			// this block blocks users deleting of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
 			}
-			responseData.Data = fmt.Sprintf("username %s not found", username)
-			response.Data = responseData
+			if !one {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized delete channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
+		}
+		s.Logger.Printf("trying to delete channel %s", channelUsername)
+		err = s.ChannelService.DeleteChannel(channelUsername)
+		if err != nil {
+			s.Logger.Printf("deletion of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channelUsername %s not found", channelUsername),
+			}
+
 			statusCode = http.StatusNotFound
 		} else {
 			response.Status = "success"
-			(*logger).Log("success deleting channel %s", username)
+			s.Logger.Printf("success deleting channel %s", channelUsername)
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getAdmins(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getAdmins returns a handler for GET /channels/{channelUsername}/admins requests
+func getAdmins(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users getting admins of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized get admins of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
-		c, err := (*service).GetChannel(username)
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
 		case nil:
 
 			response.Status = "success"
 			response.Data = c.AdminUsernames
-			(*logger).Log("success fetching admins of channel %s", username)
+			s.Logger.Printf("success fetching admins of channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of non existing channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of non existing channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("user of channel %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("user of channel %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of admins of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of admins of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching admins of channel",
 			}
-			responseData.Data = "server error when fetching admins of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func putAdmin(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// putAdmin returns a handler for PUT /channels/{channelUsername}/admins/{adminUsername}
+func putAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users updating of admins of  channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+			s.Logger.Printf(adminUsername[0], adminUsername[1])
+			s.Logger.Printf(r.Header.Get("username"))
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					s.Logger.Printf("found sliimy")
+					one = true
+
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized update of channel admins attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 		adminUsername := vars["adminUsername"]
-		err := (*service).AddAdmin(username, adminUsername)
+		err := s.ChannelService.AddAdmin(channelUsername, adminUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
-			(*logger).Log("success adding admin  %s in to channel %s", adminUsername, username)
+			s.Logger.Printf("success adding admin  %s in to channel %s", adminUsername, channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: "channel doesn't exits",
 			}
-			responseData.Data = "channel doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		case channel.ErrAdminNotFound:
-			(*logger).Log(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"adminUsername"`
+			s.Logger.Printf(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "adminUsername",
+				ErrorMessage: "Admin user doesn't exits",
 			}
-			responseData.Data = "Admin user doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf(fmt.Sprintf("Adding of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when Adding of Admin",
 			}
-			responseData.Data = "server error when Adding of Admin"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func deleteAdmin(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// deleteAdmin returns a handler for DELETE /channels/{channelUsername}/admins/{adminUsername}
+func deleteAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			//TODO who deletes admins?
+			//// this block blocks users deleting of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized delete admins of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 		adminUsername := vars["adminUsername"]
-		err := (*service).DeleteAdmin(username, adminUsername)
+		err := s.ChannelService.DeleteAdmin(channelUsername, adminUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
-			(*logger).Log("success deleting admin  %s in to channel %s", adminUsername, username)
+			s.Logger.Printf("success deleting admin  %s in to channel %s", adminUsername, channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: "channel doesn't exits",
 			}
-			responseData.Data = "channel doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		case channel.ErrAdminNotFound:
-			(*logger).Log(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"adminUsername"`
+			s.Logger.Printf(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "adminUsername",
+				ErrorMessage: "Admin user doesn't exits",
 			}
-			responseData.Data = "Admin user doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf(fmt.Sprintf("Deleting of Admin failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when Deleting of Admin",
 			}
-			responseData.Data = "server error when Deleting of Admin"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getOwner(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getOwner returns a handler for GET /channels/{channelUsername}/owners
+func getOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
@@ -462,216 +577,256 @@ func getOwner(service *channel.Service, logger *Logger) func(w http.ResponseWrit
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users getting owners of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized get owner of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
-		c, err := (*service).GetChannel(username)
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = c.OwnerUsername
-			(*logger).Log("success fetching owner of channel %s", username)
+			s.Logger.Printf("success fetching owner of channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of non existing channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of non existing channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of owner of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of owner of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching owner of channel",
 			}
-			responseData.Data = "server error when fetching owner of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func putOwner(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// putOwner returns a handler for PUT /channels/{channelUsername}/owners/{ownerUsername}
+func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users updating owner of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			ownerUsername := c.OwnerUsername
+			if ownerUsername == r.Header.Get("username") {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized update owner of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+			}
 		}
 		ownerUsername := vars["ownerUsername"]
-		err := (*service).ChangeOwner(username, ownerUsername)
+		err := s.ChannelService.ChangeOwner(channelUsername, ownerUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
-			(*logger).Log("success updating owner of  %s  channel to %s", username, ownerUsername)
+			s.Logger.Printf("success updating owner of  %s  channel to %s", channelUsername, ownerUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: "channel doesn't exits",
 			}
-			responseData.Data = "channel doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		case channel.ErrOwnerNotFound:
-			(*logger).Log(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"adminUsername"`
+			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "adminUsername",
+				ErrorMessage: "Owner user doesn't exits",
 			}
-			responseData.Data = "Owner user doesn't exits"
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when Update of owner",
 			}
-			responseData.Data = "server error when Update of owner"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
 
-func getCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+// getCatalog returns a handler for GET /channels/{channelUsername}/catalog
+func getCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users getting Catalog of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized get catalog of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
-		c, err := (*service).GetChannel(username)
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = c.ReleaseIDs
-			(*logger).Log("success fetching catalog of channel %s", username)
+			s.Logger.Printf("success fetching catalog of channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of catalog from non existent channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of catalog from non existent channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of catalog of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of catalog of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching catalog of channel",
 			}
-			responseData.Data = "server error when fetching catalog of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getOfficialCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getOfficialCatalog returns a handler for GET /channels/{channelUsername}/official
+func getOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
-		{
-			//TODO
-			//AUTHORIZATION
-		}
-		c, err := (*service).GetChannel(username)
+		channelUsername := vars["channelUsername"]
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = c.OfficialReleaseIDs
-			(*logger).Log("success fetching official catalog of channel %s", username)
+			s.Logger.Printf("success fetching official catalog of channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of official catalog from non existent channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of official catalog from non existent channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of official catalog of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of official catalog of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching official catalog of channel",
 			}
-			responseData.Data = "server error when fetching official catalog of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func deleteReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// deleteReleaseFromCatalog returns a handler for DELETE /channels/{channelUsername}/catalogs/{catalogID}
+func deleteReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized delete release of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 		ReleaseID, err := strconv.Atoi(vars["catalogID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, ReleaseID must be an integer",
 			}
-			responseData.Data = `bad request, ReleaseID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad delete Release request")
 			statusCode = http.StatusBadRequest
 
 		} else {
-			errC := (*service).DeleteReleaseFromCatalog(username, ReleaseID)
+			errC := s.ChannelService.DeleteReleaseFromCatalog(channelUsername, ReleaseID)
 			switch errC {
 			case nil:
 				response.Status = "success"
-				(*logger).Log("success deleting release  %s from channel %s's Catalog", ReleaseID, username)
+				s.Logger.Printf("success deleting release  %d from channel %s's Catalog", ReleaseID, channelUsername)
 			case channel.ErrChannelNotFound:
-				(*logger).Log(fmt.Sprintf("Deleting of release failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of release failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: "channel doesn't exits",
 				}
-				responseData.Data = "channel doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			case channel.ErrReleaseNotFound:
-				(*logger).Log(fmt.Sprintf("Deleting of Admin failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"releaseID"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of Admin failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "releaseID",
+					ErrorMessage: "Release doesn't exits",
 				}
-				responseData.Data = "Release doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("Deleting of Release failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of Release failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when Deleting of Release",
 				}
-				responseData.Data = "server error when Deleting of Release"
-				response.Status = "error"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			}
 
@@ -680,65 +835,148 @@ func deleteReleaseFromCatalog(service *channel.Service, logger *Logger) func(w h
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// deleteReleaseFromOfficialCatalog returns a handler for DELETE /channels/{channelUsername}/official/{catalogID}
+func deleteReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+		vars := mux.Vars(r)
+		channelUsername := vars["channelUsername"]
+		{
+			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized delete release of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
+		}
+		ReleaseID, err := strconv.Atoi(vars["catalogID"])
+		if err != nil {
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, ReleaseID must be an integer",
+			}
+			statusCode = http.StatusBadRequest
+
+		} else {
+			errC := s.ChannelService.DeleteReleaseFromOfficialCatalog(channelUsername, ReleaseID)
+			switch errC {
+			case nil:
+				response.Status = "success"
+				s.Logger.Printf("success deleting release  %d from channel %s's Catalog", ReleaseID, channelUsername)
+			case channel.ErrChannelNotFound:
+				s.Logger.Printf(fmt.Sprintf("Deleting of release failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: "channel doesn't exits",
+				}
+				statusCode = http.StatusNotFound
+			case channel.ErrReleaseNotFound:
+				s.Logger.Printf(fmt.Sprintf("Deleting of release from official catalog failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "releaseID",
+					ErrorMessage: "Release doesn't exits",
+				}
+				statusCode = http.StatusNotFound
+			default:
+				s.Logger.Printf(fmt.Sprintf("Deleting of Release from official catalog failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when Deleting of Release",
+				}
+				statusCode = http.StatusInternalServerError
+			}
+
+		}
+
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// getReleaseFromCatalog returns a handler for GET /channels/{channelUsername}/catalogs/{catalogID}
+func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users get release of catalog of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized get release of catalog of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 
 		ReleaseID, errC := strconv.Atoi(vars["catalogID"])
 		if errC != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, ReleaseID must be an integer",
 			}
-			responseData.Data = `bad request, ReleaseID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad delete Release request")
 			statusCode = http.StatusBadRequest
 
 		} else {
-			c, err := (*service).GetChannel(username)
-			(*logger).Log("geyying")
+			c, err := s.ChannelService.GetChannel(channelUsername)
+
 			switch err {
 			case nil:
 				for i := 0; i < len(c.ReleaseIDs); i++ {
 					if c.ReleaseIDs[i] == ReleaseID {
 						response.Status = "success"
 						response.Data = c.ReleaseIDs
-						(*logger).Log("success fetching release of  catalog of channel %s", username)
+						s.Logger.Printf("success fetching release of  catalog of channel %s", channelUsername)
 					} else {
-
-						var responseData struct {
-							Data string `json:"releaseID"`
+						response.Data = jSendFailData{
+							ErrorReason:  "releaseID",
+							ErrorMessage: "release doesn't exits",
 						}
-						responseData.Data = "release doesn't exits"
-						response.Data = responseData
 						statusCode = http.StatusNotFound
 
 					}
 				}
 			case channel.ErrChannelNotFound:
-				(*logger).Log("fetch attempt of catalog from non existent channel %s", username)
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf("fetch attempt of catalog from non existent channel %s", channelUsername)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 				}
-				responseData.Data = fmt.Sprintf("channel of %s not found", username)
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log("fetching of catalog of channel failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf("fetching of catalog of channel failed because: %s", err.Error())
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when fetching catalog of channel",
 				}
-				responseData.Data = "server error when fetching catalog of channel"
-				response.Status = "error"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			}
 		}
@@ -746,106 +984,116 @@ func getReleaseFromCatalog(service *channel.Service, logger *Logger) func(w http
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func putReleaseInCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// putReleaseInCatalog returns a handler for PUT /channels/{channelUsername}/catalogs/{catalogID}
+func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//feature-release-service Put RELEASE handler
 	}
 }
-func postReleaseInCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// postReleaseInCatalog returns a handler for POST /channels/{channelUsername}/catalogs/{catalogID}
+func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		//feature-release-service Post RELEASE Handler
 	}
 }
-func putReleaseInOfficialCatalog(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// putReleaseInOfficialCatalog returns a handler for PUT /channels/{channelUsername}/official/{catalogID}
+func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users updating content of catalog of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized update catalog of  channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 
 		releaseID, err := strconv.Atoi(vars["catalogID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, releaseID must be an integer",
 			}
-			responseData.Data = `bad request, releaseID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad bookmark post request")
 			statusCode = http.StatusBadRequest
 		}
 		if response.Data == nil {
-			c, errC := (*service).GetChannel(username)
+			c, errC := s.ChannelService.GetChannel(channelUsername)
 			switch errC {
 			case nil:
 				for i := 0; i < len(c.ReleaseIDs); i++ {
 					if c.ReleaseIDs[i] == releaseID {
 						response.Status = "success"
-						err := (*service).AddReleaseToOfficialCatalog(username, releaseID)
+						err := s.ChannelService.AddReleaseToOfficialCatalog(channelUsername, releaseID)
 						switch err {
 						case nil:
-							(*logger).Log(fmt.Sprintf("success adding Release %d to channels %s's Catalog", releaseID, username))
+							s.Logger.Printf(fmt.Sprintf("success adding Release %d to channels %s's Catalog", releaseID, channelUsername))
 							response.Status = "success"
 						case channel.ErrChannelNotFound:
-							(*logger).Log(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
-							var responseData struct {
-								Data string `json:"username"`
+							s.Logger.Printf(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
+							response.Data = jSendFailData{
+								ErrorReason:  "channelUsername",
+								ErrorMessage: "channel doesn't exits",
 							}
-							responseData.Data = "channel doesn't exits"
-							response.Data = responseData
 							statusCode = http.StatusNotFound
 						case channel.ErrReleaseNotFound:
-							(*logger).Log(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
-							var responseData struct {
-								Data string `json:"releaseID"`
+							s.Logger.Printf(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
+							response.Data = jSendFailData{
+								ErrorReason:  "releaseID",
+								ErrorMessage: "release doesn't exits",
 							}
-							responseData.Data = "release doesn't exits"
-							response.Data = responseData
 							statusCode = http.StatusNotFound
 						default:
-							(*logger).Log(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
-							var responseData struct {
-								Data string `json:"message"`
+							s.Logger.Printf(fmt.Sprintf("Adding Release to Offical Catalog failed because: %s", err.Error()))
+							response.Data = jSendFailData{
+								ErrorReason:  "error",
+								ErrorMessage: "server error when Adding Release to Official Catalog ",
 							}
-							responseData.Data = "server error when Adding Release to Offical Catalog "
-							response.Status = "error"
-							response.Data = responseData
 							statusCode = http.StatusInternalServerError
 						}
 						break
 
 					} else {
-
-						var responseData struct {
-							Data string `json:"releaseID"`
+						response.Data = jSendFailData{
+							ErrorReason:  "releaseID",
+							ErrorMessage: "release doesn't exits",
 						}
-						responseData.Data = "release doesn't exits"
-						response.Data = responseData
 						statusCode = http.StatusNotFound
 
 					}
 				}
 			case channel.ErrChannelNotFound:
-				(*logger).Log("fetch attempt of catalog from non existent channel %s", username)
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf("fetch attempt of catalog from non existent channel %s", channelUsername)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 				}
-				responseData.Data = fmt.Sprintf("channel of %s not found", username)
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-
-				var responseData struct {
-					Data string `json:"message"`
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when fetching catalog of channel",
 				}
-				responseData.Data = "server error when fetching catalog of channel"
-				response.Status = "error"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			}
 		}
@@ -854,27 +1102,22 @@ func putReleaseInOfficialCatalog(service *channel.Service, logger *Logger) func(
 	}
 }
 
-func getPost(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+// getPost returns a handler for GET /channels/{channelUsername}/Posts/{postIDs}
+func getPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
-		{
-			//TODO
-			//AUTHORIZATION
-		}
-		c, err := (*service).GetChannel(username)
+		channelUsername := vars["channelUsername"]
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		postID, errC := strconv.Atoi(vars["postID"])
 		if errC != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, postID must be an integer",
 			}
-			responseData.Data = `bad request, postID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad get post request")
 			statusCode = http.StatusBadRequest
 
 		} else {
@@ -884,240 +1127,434 @@ func getPost(service *channel.Service, logger *Logger) func(w http.ResponseWrite
 					if c.PostIDs[i] == postID {
 						response.Status = "success"
 						response.Data = c.PostIDs[i]
-						(*logger).Log("success fetching post of channel %s", username)
+						s.Logger.Printf("success fetching post of channel %s", channelUsername)
 						break
 					} else {
-
-						var responseData struct {
-							Data string `json:"postID"`
+						response.Data = jSendFailData{
+							ErrorReason:  "postID",
+							ErrorMessage: "post doesn't exits",
 						}
-						responseData.Data = "post doesn't exits"
-						response.Data = responseData
 						statusCode = http.StatusNotFound
 
 					}
 				}
 			case channel.ErrChannelNotFound:
-				(*logger).Log("fetch attempt of post from non existent channel %s", username)
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf("fetch attempt of post from non existent channel %s", channelUsername)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 				}
-				responseData.Data = fmt.Sprintf("channel of %s not found", username)
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log("fetching of post of channel failed because: %s", err.Error())
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf("fetching of post of channel failed because: %s", err.Error())
+				response.Data = jSendFailData{
+					ErrorReason:  "error",
+					ErrorMessage: "server error when fetching post of channel",
 				}
-				responseData.Data = "server error when fetching post of channel"
-				response.Status = "error"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getPosts(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getPosts returns a handler for GET /channels/{channelUsername}/Posts
+func getPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
-		{
-			//TODO
-			//AUTHORIZATION
-		}
-		c, err := (*service).GetChannel(username)
+		channelUsername := vars["channelUsername"]
+
+		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
 		case nil:
 			response.Status = "success"
 			response.Data = c.PostIDs
-			(*logger).Log("success fetching posts of channel %s", username)
+			s.Logger.Printf("success fetching posts of channel %s", channelUsername)
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of posts from non existent channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of posts from non existent channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of posts of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of posts of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching catalog of channel",
 			}
-			responseData.Data = "server error when fetching catalog of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func getStickiedPosts(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// getStickiedPosts returns a handler for GET /channels/{channelUsername}/stickiedPosts
+func getStickiedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
-		{
-			//TODO
-			//AUTHORIZATION
-		}
-		c, err := (*service).GetChannel(username)
+		channelUsername := vars["channelUsername"]
+		c, err := s.ChannelService.GetChannel(channelUsername)
 
 		switch err {
 		case nil:
 
 			response.Status = "success"
 			response.Data = c.StickiedPostIDs
-			(*logger).Log("success fetching post of channel %s", username)
+			s.Logger.Printf("success fetching post of channel %s", channelUsername)
 
 		case channel.ErrChannelNotFound:
-			(*logger).Log("fetch attempt of post from non existent channel %s", username)
-			var responseData struct {
-				Data string `json:"username"`
+			s.Logger.Printf("fetch attempt of post from non existent channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
 			}
-			responseData.Data = fmt.Sprintf("channel of %s not found", username)
-			response.Data = responseData
 			statusCode = http.StatusNotFound
 		default:
-			(*logger).Log("fetching of post of channel failed because: %s", err.Error())
-			var responseData struct {
-				Data string `json:"message"`
+			s.Logger.Printf("fetching of post of channel failed because: %s", err.Error())
+			response.Data = jSendFailData{
+				ErrorReason:  "error",
+				ErrorMessage: "server error when fetching post of channel",
 			}
-			responseData.Data = "server error when fetching post of channel"
-			response.Status = "error"
-			response.Data = responseData
 			statusCode = http.StatusInternalServerError
 		}
 
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func deleteStickiedPost(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// deleteStickiedPost returns a handler for DELETE /channels/{channelUsername}/stickiedPosts{stickiedPostID}
+func deleteStickiedPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users deleting stickied post of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized delete stickied post of channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 		stickiedPostID, err := strconv.Atoi(vars["stickiedPostID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "Bad Request",
+				ErrorMessage: "bad request, StickiedPostID must be an integer",
 			}
-			responseData.Data = `bad request, StickiedPostID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad delete StickiedPostID request")
 			statusCode = http.StatusBadRequest
 
 		} else {
-			errC := (*service).DeleteStickiedPost(username, stickiedPostID)
+			errC := s.ChannelService.DeleteStickiedPost(channelUsername, stickiedPostID)
 			switch errC {
 			case nil:
 				response.Status = "success"
-				(*logger).Log("success deleting stickied Post  %s from channel %s's Catalog", stickiedPostID, username)
+				s.Logger.Printf("success deleting stickied Post  %d from channel %s's Catalog", stickiedPostID, channelUsername)
 			case channel.ErrChannelNotFound:
-				(*logger).Log(fmt.Sprintf("Deleting of stickied Post failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of stickied Post failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: "channel doesn't exits",
 				}
-				responseData.Data = "channel doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			case channel.ErrStickiedPostNotFound:
-				(*logger).Log(fmt.Sprintf("Deleting of stickied post failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"stickiedPostID"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of stickied post failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "stickiedPostID",
+					ErrorMessage: "Stickied Post doesn't exits",
 				}
-				responseData.Data = "Stickied Post doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("Deleting of Stickied Post failed because: %s", errC.Error()))
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf(fmt.Sprintf("Deleting of Stickied Post failed because: %s", errC.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "Error",
+					ErrorMessage: "server error when Deleting of Stickied Post",
 				}
-				responseData.Data = "server error when Deleting of Stickied Post"
-				response.Status = "error"
-				response.Data = responseData
 				statusCode = http.StatusInternalServerError
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
-func stickyPost(service *channel.Service, logger *Logger) func(w http.ResponseWriter, r *http.Request) {
+
+// stickyPost returns a handler for PUT /channels/{channelUsername}/Posts/{postID}
+func stickyPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 		vars := mux.Vars(r)
-		username := vars["username"]
+		channelUsername := vars["channelUsername"]
 		{
-			//TODO
-			//AUTHORIZATION
+			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized sticky a post in channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
 		}
 
 		stickyPost, err := strconv.Atoi(vars["postID"])
 		if err != nil {
-			var responseData struct {
-				Data string `json:"message"`
+			response.Data = jSendFailData{
+				ErrorReason:  "bad request",
+				ErrorMessage: "bad request, PostID must be an integer",
 			}
-			responseData.Data = `bad request, PostID must be an integer`
-			response.Data = responseData
-			(*logger).Log("bad delete PostID request")
 			statusCode = http.StatusBadRequest
 
 		} else {
-			err := (*service).StickyPost(username, stickyPost)
+			err := s.ChannelService.StickyPost(channelUsername, stickyPost)
 			switch err {
 			case nil:
 				response.Status = "success"
-				(*logger).Log("success of stickying post  %s to channel  %s", stickyPost, username)
+				s.Logger.Printf("success of stickying post  %d to channel  %s", stickyPost, channelUsername)
 			case channel.ErrChannelNotFound:
-				(*logger).Log(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"username"`
+				s.Logger.Printf(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: "channel doesn't exits",
 				}
-				responseData.Data = "channel doesn't exits"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			case channel.ErrPostNotFound:
-				(*logger).Log(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"postID"`
+				s.Logger.Printf(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: "post doesn't exits",
 				}
-				responseData.Data = "post doesn't exits"
-				response.Data = responseData
+
 				statusCode = http.StatusNotFound
 			case channel.ErrStickiedPostFull:
-				(*logger).Log(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"postID"`
+				s.Logger.Printf(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "Stickied postID",
+					ErrorMessage: "stickied post full",
 				}
-				responseData.Data = "stickied post full"
-				response.Data = responseData
 				statusCode = http.StatusNotFound
 			default:
-				(*logger).Log(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
-				var responseData struct {
-					Data string `json:"message"`
+				s.Logger.Printf(fmt.Sprintf("Stickying of post failed because: %s", err.Error()))
+				response.Data = jSendFailData{
+					ErrorReason:  "Server Error",
+					ErrorMessage: "server error when stickying a post",
 				}
-				responseData.Data = "server error when stickying a post"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// getChannelPicture returns a handler for GET /channels/{channelUsername}/picture requests
+func getChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+
+		vars := mux.Vars(r)
+		channelUsername := vars["channelUsername"]
+
+		c, err := s.ChannelService.GetChannel(channelUsername)
+		switch err {
+		case nil:
+			response.Status = "success"
+			response.Data = s.HostAddress + s.ImageServingRoute + url.PathEscape(c.PictureURL)
+			s.Logger.Printf("success fetching channel %s picture URL", channelUsername)
+		case channel.ErrChannelNotFound:
+			s.Logger.Printf("fetch picture URL attempt of non existing channel %s", channelUsername)
+			response.Data = jSendFailData{
+				ErrorReason:  "channelUsername",
+				ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelUsername),
+			}
+			statusCode = http.StatusNotFound
+		default:
+			s.Logger.Printf("fetching of channel picture URL failed because: %v", err)
+			response.Status = "error"
+			response.Message = "server error when fetching channel picture URL"
+			statusCode = http.StatusInternalServerError
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// putChannelPicture returns a handler for PUT /channels/{channelUsername}/picture requests
+func putChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+		vars := mux.Vars(r)
+		channelUsername := vars["channelUsername"]
+		{
+			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized sticky a post in channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
+		}
+		var tmpFile *os.File
+		var fileName string
+		{ // this block extracts the image
+			tmpFile, fileName, err = saveImageFromRequest(r, "image")
+			switch err {
+			case nil:
+				s.Logger.Printf("image found on put channel picture request")
+				defer os.Remove(tmpFile.Name())
+				defer tmpFile.Close()
+				s.Logger.Printf("temp file saved: %s", tmpFile.Name())
+				fileName = generateFileNameForStorage(fileName, "user")
+			case errUnacceptedType:
+				response.Data = jSendFailData{
+					ErrorMessage: "image",
+					ErrorReason:  "only types image/jpeg & image/png are accepted",
+				}
+				statusCode = http.StatusBadRequest
+			case errReadingFromImage:
+				s.Logger.Printf("image not found on put request")
+				response.Data = jSendFailData{
+					ErrorReason:  "image",
+					ErrorMessage: "unable to read image file\nuse multipart-form for for posting channel pictures. A form that contains the file under the key 'image', of image type JPG/PNG.",
+				}
+				statusCode = http.StatusBadRequest
+			default:
 				response.Status = "error"
-				response.Data = responseData
+				response.Message = "server error when adding channel picture"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		// if queries are clean
+		if response.Data == nil {
+			err := s.ChannelService.AddPicture(channelUsername, fileName)
+			s.Logger.Printf(channelUsername)
+			switch err {
+			case nil:
+				err := saveTempFilePermanentlyToPath(tmpFile, s.ImageStoragePath+fileName)
+				if err != nil {
+					s.Logger.Printf("adding of picture failed  case nil because: %v", err)
+					response.Status = "error"
+					response.Message = "server error when setting channel picture"
+					statusCode = http.StatusInternalServerError
+					_ = s.ChannelService.RemovePicture(channelUsername)
+				} else {
+					s.Logger.Printf("success adding picture %s to channel %s", fileName, channelUsername)
+					response.Status = "success"
+					response.Data = s.HostAddress + s.ImageServingRoute + url.PathEscape(fileName)
+				}
+			case channel.ErrChannelNotFound:
+				s.Logger.Printf("adding of channel picture failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("user of channelUsername %s not found", channelUsername),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				s.Logger.Printf("Setting of picture of channel failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when setting channel picture"
+				statusCode = http.StatusInternalServerError
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
+
+// deleteChannelPicture returns a handler for DELETE /channels/{channelUsername}/picture requests
+func deleteChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var response jSendResponse
+		statusCode := http.StatusOK
+		response.Status = "fail"
+		vars := mux.Vars(r)
+		channelUsername := vars["channelUsername"]
+		{
+			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
+			c, _ := s.ChannelService.GetChannel(channelUsername)
+			adminUsername := c.AdminUsernames
+
+			one := false
+			for i := 0; i < len(adminUsername); i++ {
+				if adminUsername[i] == r.Header.Get("username") {
+					one = true
+				}
+			}
+			if one == false {
+				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+					s.Logger.Printf("unauthorized sticky a post in channel attempt")
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+
+				}
+			}
+		}
+		// if queries are clean
+		if response.Data == nil {
+			err = s.ChannelService.RemovePicture(channelUsername)
+			switch err {
+			case nil:
+				// TODO delete picture from fs
+				s.Logger.Printf("success removing piture from channel %s", channelUsername)
+				response.Status = "success"
+			case channel.ErrChannelNotFound:
+				s.Logger.Printf("deletion of channel picture failed because: %v", err)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelUsername),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				s.Logger.Printf("deletion of user pictre failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when removing user picture"
 				statusCode = http.StatusInternalServerError
 			}
 		}
