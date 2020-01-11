@@ -56,6 +56,9 @@ func (s service) UpdateComment(comment *Comment, id int) error {
 }
 
 func (s service) DeleteComment(id int) error {
+	if _, err := s.GetComment(id); err != nil {
+		return err
+	}
 	return (*s.repo).DeleteComment(id)
 }
 
@@ -72,6 +75,9 @@ func (s service) UpdateReply(comment *Comment, id int) error {
 }
 
 func (s service) DeleteReply(id int) error {
+	if _, err := s.GetReply(id); err != nil {
+		return err
+	}
 	return (*s.repo).DeleteReply(id)
 }
 
