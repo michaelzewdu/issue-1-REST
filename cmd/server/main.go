@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
@@ -89,7 +90,14 @@ func main() {
 	services := make(map[string]interface{})
 	cacheRepos := make(map[string]interface{})
 	dbRepos := make(map[string]interface{})
-
+	{
+		var channelDBRepo = postgres.NewChannelRepository(db, &dbRepos)
+		dbRepos["Channel"] = &channelDBRepo
+		var channelCacheRepo = memory.NewChannelRepository(&channelDBRepo, &cacheRepos)
+		cacheRepos["Channel"] = &channelCacheRepo
+		setup.ChannelService = channel.NewService(&channelCacheRepo, &services)
+		services["Channel"] = &setup.ChannelService
+	}
 	{
 		var usrDBRepo = postgres.NewUserRepository(db, &dbRepos)
 		dbRepos["User"] = &usrDBRepo
