@@ -10,34 +10,34 @@ import (
 	"time"
 )
 
-// ExtractAuthTokenMiddleware returns a gorilla/mux middleware function that checks
-// if the attached request has a valid authentication token.
-// If valid JWT token found, it'll extract the sub, the username in this case and attaches
-// it to the passed request.
+// ParseAuthTokenMiddleware checks  if the attached request has a valid
+// authentication token. If valid JWT token found, it'll extract the
+// sub, the username in this case and attaches it to the passed request.
 // If no token is found, it'll attach an invalid username.
-func ExtractAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
+func ParseAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-				}
-				return s.TokenSigningSecret, nil
-			})
+			token, err := request.ParseFromRequest(r, request.AuthorizationHeaderExtractor,
+				func(token *jwt.Token) (interface{}, error) {
+					if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+						return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+					}
+					return s.TokenSigningSecret, nil
+				})
 			if err == nil && token.Valid && !s.jwtBackend.IsInBlacklist(r.Header.Get("Authorization")) {
 				claimMap, _ := token.Claims.(jwt.MapClaims)
 				if claimMap.VerifyExpiresAt(time.Now().Unix(), true) {
-					// if valid
+					// if valid and not expired
 					username := claimMap["sub"]
-					r.Header.Add("authorized_username", username.(string))
-					r.Header.Add("authorized_username_expired", "")
+					r.Header.Set("authorized_username", username.(string))
+					r.Header.Del("authorized_username_expired")
 					next.ServeHTTP(w, r)
 					return
 				} else if claimMap.VerifyExpiresAt(time.Now().Add(-s.TokenRefreshLifetime).Unix(), true) {
 					// if expired but still refreshable
 					username := claimMap["sub"]
-					r.Header.Add("authorized_username_expired", username.(string))
-					r.Header.Add("authorized_username", "")
+					r.Header.Set("authorized_username_expired", username.(string))
+					r.Header.Del("authorized_username")
 					next.ServeHTTP(w, r)
 					return
 				} else {
@@ -45,34 +45,34 @@ func ExtractAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 				}
 			}
 			// if not valid
-			r.Header.Add("authorized_username", "HerUsernameIs23LettersL")
+			r.Header.Set("authorized_username", "HerUsernameIs23LettersL")
+			r.Header.Del("authorized_username_expired")
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
 // CheckForAuthMiddleware blocks access if there's no valid credential's attached
-// on the request from the ExtractAuthTokenMiddleware.
+// on the request from the ParseAuthTokenMiddleware.
 func CheckForAuthMiddleware(s *Setup) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authUsername := r.Header.Get("authorized_username")
-			expiredAuthUsername := r.Header.Get("authorized_username_expired")
-
-			if authUsername != "" && len(authUsername) < 23 {
-				// if authUsername is valid
-				next.ServeHTTP(w, r)
-				return
-			} else if authUsername == "" && expiredAuthUsername != "" {
-				s.Logger.Printf("refresh token attempt")
+			if isAuthenticated(r, s) {
 				next.ServeHTTP(w, r)
 				return
 			}
-
 			s.Logger.Printf("unauthenticated access attempt")
 			w.WriteHeader(http.StatusUnauthorized)
 		})
 	}
+}
+
+func isAuthenticated(r *http.Request, s *Setup) bool {
+	authUsername := r.Header.Get("authorized_username")
+	if authUsername != "" && len(authUsername) < 23 {
+		return true
+	}
+	return false
 }
 
 // postTokenAuth returns a handler for POST /token-auth requests
@@ -136,10 +136,10 @@ func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 		response.Status = "fail"
 
 		{ // this block secures the route
-			if r.Header.Get("authorized_username") != "" {
-
+			if isAuthenticated(r, s) {
+				// pass, all is good
 			} else if r.Header.Get("authorized_username_expired") != "" {
-				r.Header.Add("authorized_username", r.Header.Get("authorized_username_expired"))
+				r.Header.Set("authorized_username", r.Header.Get("authorized_username_expired"))
 			} else {
 				s.Logger.Printf("unauthorized refresh request")
 				w.WriteHeader(http.StatusUnauthorized)

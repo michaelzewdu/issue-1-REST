@@ -133,5 +133,8 @@ func main() {
 	mux := rest.NewMux(&setup)
 
 	setup.Logger.Printf("server running...")
+
+	//log.Fatal(http.ListenAndServeTLS(":"+setup.Port, "cmd/server/cert.pem", "cmd/server/key.pem",mux))
+
 	log.Fatal(http.ListenAndServe(":"+setup.Port, mux))
 }
