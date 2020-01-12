@@ -1102,8 +1102,8 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 	}
 }
 
-// getPost returns a handler for GET /channels/{channelUsername}/Posts/{postIDs}
-func getPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+// getChannelPost returns a handler for GET /channels/{channelUsername}/Posts/{postIDs}
+func getChannelPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
@@ -1158,8 +1158,8 @@ func getPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// getPosts returns a handler for GET /channels/{channelUsername}/Posts
-func getPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+// getChannelPosts returns a handler for GET /channels/{channelUsername}/Posts
+func getChannelPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
