@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/lib/pq"
-
 	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 )
 
@@ -27,7 +25,7 @@ func (repo *postRepository) GetPost(id int) (*post.Post, error) {
 								FROM "issue#1".posts
 								WHERE posts.id = $1`, id).Scan(&p.PostedByUsername, &p.OriginChannel, &p.Title, &p.Description, &p.CreationTime)
 	if err != nil {
-		checkErr(err)
+		//checkErr(err)
 		return nil, post.ErrPostNotFound
 	}
 	ContentList, errr := repo.getContents(id)
@@ -62,7 +60,7 @@ func (repo *postRepository) getContents(id int) ([]int, error) {
 								FROM "issue#1".post_contents
 								WHERE post_id = $1`, id)
 	if err != nil {
-		checkErr(err)
+		//checkErr(err)
 		return nil, fmt.Errorf("querying for post contents failed because of: %v", err)
 	}
 	defer rows.Close()
@@ -157,10 +155,9 @@ func (repo *postRepository) AddPost(p *post.Post) (*post.Post, error) {
 				RETURNING id`
 	errs := repo.db.QueryRow(query, p.PostedByUsername, p.OriginChannel, p.Title, p.Description).Scan(&p.ID)
 	if errs != nil {
-		checkErr(errs)
+		//checkErr(errs)
 		return nil, post.ErrSomePostDataNotPersisted
 	}
-	fmt.Println("\ndfsjlk")
 	p.PostedByUsername = ""
 	p.OriginChannel = ""
 	p.Title = ""
@@ -211,7 +208,6 @@ func (repo *postRepository) UpdatePost(pos *post.Post, id int) (*post.Post, erro
 	p, d := repo.GetPost(id)
 	if d == nil {
 		if len(errs) > 0 {
-			fmt.Printf("%+v", errs)
 			d = post.ErrSomePostDataNotPersisted
 		}
 	} else {
@@ -315,7 +311,7 @@ func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, er
 								FROM "issue#1".post_stars 
 								WHERE post_id = $1 AND username=$2`, id, username).Scan(&s.Username, &s.NumOfStars)
 	if err != nil {
-		checkErr(err)
+		//checkErr(err)
 		return nil, post.ErrStarNotFound
 	}
 	return &s, nil
@@ -327,7 +323,7 @@ func (repo *postRepository) DeletePostStar(id int, username string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".post_stars
 							WHERE post_id = $1 AND username=$2`, id, username)
 	if err != nil {
-		checkErr(err)
+		//checkErr(err)
 		return post.ErrStarNotFound
 	}
 	return nil
@@ -339,7 +335,7 @@ func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, er
 				VALUES ($1,$2,$3)`
 	_, errs := repo.db.Exec(query, id, star.Username, star.NumOfStars)
 	if errs != nil {
-		checkErr(errs)
+		//checkErr(errs)
 		return nil, post.ErrStarNotFound
 	}
 	return repo.GetPostStar(id, star.Username)
@@ -357,9 +353,10 @@ func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star,
 	}
 	return repo.GetPostStar(id, star.Username)
 }
-func checkErr(errs error) {
-	if pgErr, isPGErr := errs.(pq.Error); !isPGErr {
-		fmt.Printf("prin\n%v", pgErr)
-	}
-	fmt.Printf("error here")
-}
+
+// func checkErr(errs error) {
+// 	if pgErr, isPGErr := errs.(pq.Error); !isPGErr {
+// 		fmt.Printf("prin\n%v", pgErr)
+// 	}
+// 	fmt.Printf("error here")
+// }

@@ -22,7 +22,4 @@ type Star struct {
 	NumOfStars int    `json:"stars,omitempty"`
 }
 
-//
-type Release struct {
-	ID int `json:"id,omitempty"`
-}
+

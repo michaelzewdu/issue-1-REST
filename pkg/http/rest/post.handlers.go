@@ -315,8 +315,8 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET: /posts/:id/releases/
-// getPostReleases returns a handler for GET: /posts/:id/releases requests ---{getPost,getPostReleases}
-/*func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+// getPostReleases returns a handler for GET: /posts/:id/releases requests ---{getPost}
+func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
@@ -340,96 +340,15 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 			switch err {
 			case nil:
 				response.Status = "success"
-				response.Data = *pos
-				d.Logger.Printf("success fetching post %d", id)
-				rel, erro := d.PostService.GetPostReleases(pos)
-				switch erro {
-				case nil:
-					response.Status = "success"
-					response.Data = rel
-					d.Logger.Printf("success fetching release %d", id)
-				default:
-					d.Logger.Printf("fetching of releases failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when fetching releases of post"
-					statusCode = http.StatusInternalServerError
-				}
-
-			case post.ErrPostNotFound:
-				response.Data = jSendFailData{
-					ErrorReason:  "postID",
-					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
-				}
-				statusCode = http.StatusNotFound
-			default:
-				d.Logger.Printf("fetching of post failed because: %v", err)
-				response.Status = "error"
-				response.Message = "server error when fetching post"
-				statusCode = http.StatusInternalServerError
-
-			}
-		}
-		writeResponseToWriter(response, w, statusCode)
-	}
-}*/
-
-// GET: /posts/:id/releases/:release_id
-// getPostRelease returns a handler for GET: /posts/:id/releases/:rId requests ---{getPost,getPostRelease}
-/*func getPostRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var response jSendResponse
-		response.Status = "fail"
-		statusCode := http.StatusOK
-
-		vars := mux.Vars(r)
-		idRaw := vars["id"]
-		rIdRaw := vars["rId"]
-
-		id, err := strconv.Atoi(idRaw)
-		if err != nil {
-			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
-			response.Data = jSendFailData{
-				ErrorReason:  "postID",
-				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
-			}
-			statusCode = http.StatusBadRequest
-		}
-		rId, erro := strconv.Atoi(idRaw)
-		if erro != nil {
-			d.Logger.Printf("fetch attempt of non invalid release of post id %s", rIdRaw)
-			response.Data = jSendFailData{
-				ErrorReason:  "releaseeID",
-				ErrorMessage: fmt.Sprintf("invalid releaseID %d", rId),
-			}
-			statusCode = http.StatusBadRequest
-		}
-
-		if response.Data == nil {
-			d.Logger.Printf("trying to fetch Post %d", id)
-			pos, err := d.PostService.GetPost(id)
-			switch err {
-			case nil:
-				response.Status = "success"
-				response.Data = *pos
-				d.Logger.Printf("success fetching post %d", id)
-				rel, erro := d.PostService.GetPostRelease(pos.ID, rId)
-				switch erro {
-				case nil:
-					response.Status = "success"
-					response.Data = *rel
-					d.Logger.Printf("success fetching release %d", rId)
-				case post.ErrReleaseNotFound:
-					response.Data = jSendFailData{
-						ErrorReason:  "releaseID",
-						ErrorMessage: fmt.Sprintf("release of releaseID %d not found", rId),
+				pReleases := make([]interface{}, 0)
+				for _, rID := range pos.ContentsID {
+					if temp, err := d.ReleaseService.GetRelease(rID); err == nil {
+						pReleases = append(pReleases, temp)
+					} else {
+						pReleases = append(pReleases, rID)
 					}
-					statusCode = http.StatusNotFound
-				default:
-					d.Logger.Printf("fetching of releases failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when fetching releases of post"
-					statusCode = http.StatusInternalServerError
 				}
+				response.Data = pReleases
 
 			case post.ErrPostNotFound:
 				response.Data = jSendFailData{
@@ -447,9 +366,61 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
-}*/
+}
 
-// PUT: /posts/:id/stars
+// GET: /posts/:id/comments/
+// getPostComments returns a handler for GET: /posts/:id/comments requests ---{getPost}
+func getPostComments(d *Setup) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var response jSendResponse
+		response.Status = "fail"
+		statusCode := http.StatusOK
+
+		vars := mux.Vars(r)
+		idRaw := vars["id"]
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "postID",
+				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
+			}
+			statusCode = http.StatusBadRequest
+		}
+
+		if response.Data == nil {
+			d.Logger.Printf("trying to fetch Post %d", id)
+			pos, err := d.PostService.GetPost(id)
+			switch err {
+			case nil:
+				response.Status = "success"
+				pComments := make([]interface{}, 0)
+				for _, cID := range pos.CommentsID {
+					if temp, err := d.CommentService.GetComment(cID); err == nil {
+						pComments = append(pComments, temp)
+					} else {
+						pComments = append(pComments, cID)
+					}
+				}
+				response.Data = pComments
+
+			case post.ErrPostNotFound:
+				response.Data = jSendFailData{
+					ErrorReason:  "postID",
+					ErrorMessage: fmt.Sprintf("post of postID %d not found", id),
+				}
+				statusCode = http.StatusNotFound
+			default:
+				d.Logger.Printf("fetching of post failed because: %v", err)
+				response.Status = "error"
+				response.Message = "server error when fetching post"
+				statusCode = http.StatusInternalServerError
+
+			}
+		}
+		writeResponseToWriter(response, w, statusCode)
+	}
+}
 
 // GET:/posts?sortBy=creation-time&sortOrder=asc&limit=25&offset=0&pattern=John
 // getPosts returns a handler for GET /posts?sort=new&limit=5&offset=0&pattern=Joe requests---{searchPost}
@@ -463,8 +434,8 @@ func getPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		pattern := ""
 		limit := 25
 		offset := 0
-		var sortBy post.SortBy
-		var sortOrder post.SortOrder
+		sortBy:=post.SortByPoster
+		sortOrder:=post.SortDescending
 
 		{ // this block reads the query strings if any
 			pattern = r.URL.Query().Get("pattern")

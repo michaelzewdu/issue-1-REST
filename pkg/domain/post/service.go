@@ -12,8 +12,6 @@ type Service interface {
 	DeletePost(id int) error
 	AddPost(p *Post) (*Post, error)
 	UpdatePost(pos *Post, id int) (*Post, error)
-	// GetPostReleases(p *Post) ([]*Release, error)
-	// GetPostRelease(pId int, rId int) (*Release, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
 	GetPostStar(id int, username string) (*Star, error)
 	DeletePostStar(id int, username string) error
@@ -27,8 +25,6 @@ type Repository interface {
 	DeletePost(id int) error
 	AddPost(p *Post) (*Post, error)
 	UpdatePost(pos *Post, id int) (*Post, error)
-	// GetPostReleases(p *Post) ([]*Release, error)
-	// GetPostRelease(pId int, rId int) (*Release, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
 	GetPostStar(id int, username string) (*Star, error)
 	DeletePostStar(id int, username string) error
@@ -108,8 +104,7 @@ func (s service) UpdatePost(pos *Post, id int) (*Post, error) {
 	return (*s.repo).UpdatePost(pos, id)
 }
 
-// GetPostReleases(p *Post) ([]*Release, error)
-// GetPostRelease(pId int, rId int) (*Release, error)
+
 func (s service) SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error) {
 	if limit < 0 || offset < 0 {
 		return nil, fmt.Errorf("invalid pagination")

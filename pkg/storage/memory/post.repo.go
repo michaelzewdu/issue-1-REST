@@ -1,8 +1,6 @@
 package memory
 
 import (
-	"fmt"
-
 	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 )
 
@@ -128,7 +126,6 @@ func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, er
 	}
 	errs := repo.cachePost(id)
 	if errs != nil {
-		fmt.Print("caching failed :( \n")
 		return nil, err
 	}
 	return s, nil
@@ -146,7 +143,6 @@ func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star,
 	}
 	errs := repo.cachePost(id)
 	if errs != nil {
-		fmt.Print("caching failed :( \n")
 		return nil, err
 	}
 	return s, nil
