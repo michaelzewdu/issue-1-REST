@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -422,7 +423,15 @@ func getUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		case nil:
 			response.Status = "success"
 			// TODO get bookmarks
-			response.Data = u.BookmarkedPosts
+			bookmarks := make(map[time.Time]interface{})
+			for t, id := range u.BookmarkedPosts {
+				if temp, err := s.PostService.GetPost(id); err == nil {
+					bookmarks[t] = temp
+				} else {
+					bookmarks[t] = id
+				}
+			}
+			response.Data = bookmarks
 			s.Logger.Printf("success fetching user %s", username)
 		case user.ErrUserNotFound:
 			s.Logger.Printf("fetch attempt of non existing user %s", username)

@@ -3,12 +3,12 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/gorilla/mux"
+	"time"
 )
 
 // getFeed returns a handler for GET /users/{username}/feed requests
@@ -119,7 +119,15 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			switch err {
 			case nil:
 				response.Status = "success"
-				response.Data = posts
+				truePosts := make([]interface{}, 0)
+				for _, pID := range posts {
+					if temp, err := s.PostService.GetPost(pID.ID); err == nil {
+						truePosts = append(truePosts, temp)
+					} else {
+						truePosts = append(truePosts, pID)
+					}
+				}
+				response.Data = truePosts
 				s.Logger.Printf("success fetching posts for feed")
 				// TODO deliver actual posts from post service
 			case feed.ErrFeedNotFound:
@@ -195,7 +203,15 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case nil:
 			response.Status = "success"
-			response.Data = channels
+			trueChannels := make(map[time.Time]interface{}, 0)
+			for _, c := range channels {
+				if temp, err := s.ChannelService.GetChannel(c.Channelname); err == nil {
+					trueChannels[c.SubscriptionTime] = temp
+				} else {
+					trueChannels[c.SubscriptionTime] = c
+				}
+			}
+			response.Data = trueChannels
 			s.Logger.Printf("success fetching channels of feed")
 		case feed.ErrFeedNotFound:
 			s.Logger.Printf("fetching of feed failed because: %v", err)
