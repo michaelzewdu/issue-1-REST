@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"net/url"
 	"os"
 
@@ -128,7 +129,7 @@ func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if response.Data == nil {
 				s.Logger.Printf("trying to add channel %s %s %s ", c.ChannelUsername, c.Name, c.Description)
 				if &c != nil {
-					err := s.ChannelService.AddChannel(&c)
+					err := s.ChannelService.AddChannel(c)
 					switch err {
 					case nil:
 						response.Status = "success"
@@ -1030,21 +1031,18 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-//TODO
-//// putReleaseInCatalog returns a handler for PUT /channels/{channelUsername}/catalogs/{catalogID}
-func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
+// putRelease returns a handler for PUT /releases/{id} requests
+func putReleaseInCatalog(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		k := false
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
 		vars := mux.Vars(r)
-		channelUsername := vars["channelUsername"]
-		idRaw := vars["catalogID"]
+		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			s.Logger.Printf("put attempt of non invalid release id %s", idRaw)
+			d.Logger.Printf("put attempt of non invalid release id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "releaseID",
 				ErrorMessage: fmt.Sprintf("invalid releaseID %d", id),
@@ -1078,10 +1076,10 @@ func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 						tmpFile, fileName, err = saveImageFromRequest(r, "image")
 						switch err {
 						case nil:
-							s.Logger.Printf("image found on put request")
+							d.Logger.Printf("image found on put request")
 							defer os.Remove(tmpFile.Name())
 							defer tmpFile.Close()
-							s.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
+							d.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
 							rel.Content = generateFileNameForStorage(fileName, "release")
 							rel.Type = release.Image
 						case errUnacceptedType:
@@ -1091,7 +1089,7 @@ func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 							}
 							statusCode = http.StatusBadRequest
 						case errReadingFromImage:
-							s.Logger.Printf("image not found on put request")
+							d.Logger.Printf("image not found on put request")
 							if rel.Type == release.Image {
 								response.Data = jSendFailData{
 									ErrorReason:  "image",
@@ -1109,99 +1107,69 @@ func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 		if response.Data == nil {
-			// if JSON parsing doesn't fail
-			if rel.Content == "" && rel.Title == "" && rel.GenreDefining == "" && rel.Description == "" && len(rel.Genres) == 0 && len(rel.Authors) == 0 && rel.OwnerChannel == "" {
-				response.Data = jSendFailData{
-					ErrorReason:  "request",
-					ErrorMessage: "bad request, data sent doesn't contain update able data",
-				}
-				statusCode = http.StatusBadRequest
-			}
-
+			rel.OwnerChannel = vars["channelUsername"]
 			{
-				// this block blocks users get release of catalog of channel if is not the admin of the channel herself accessing the route
-				c, _ := s.ChannelService.GetChannel(channelUsername)
-				adminUsername := c.AdminUsernames
-
-				one := false
-				for i := 0; i < len(adminUsername); i++ {
-					if adminUsername[i] == r.Header.Get("authorized_username") {
-						one = true
+				if c, err := d.ChannelService.GetChannel(rel.OwnerChannel); err == nil {
+					found := false
+					for _, username := range c.AdminUsernames {
+						if username == r.Header.Get("authorized_username") {
+							found = true
+						}
 					}
-				}
-				if one == false {
-					if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
-						s.Logger.Printf("unauthorized get release of catalog of channel attempt")
+					if !found {
+						d.Logger.Printf("unauthorized delete release of channel attempt")
 						w.WriteHeader(http.StatusUnauthorized)
 						return
-
+					}
+				} else {
+					d.Logger.Printf("put attempt on channel on non existent channel %s", rel.OwnerChannel)
+					response.Data = jSendFailData{
+						ErrorReason:  "channelUsername",
+						ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", rel.OwnerChannel),
 					}
 				}
 			}
-			c, err := s.ChannelService.GetChannel(channelUsername)
-			switch err {
-			case nil:
-
-				k = true
-				s.Logger.Printf("success fetching official catalog of channel %s", channelUsername)
-			case channel.ErrChannelNotFound:
-				s.Logger.Printf("fetch attempt of official catalog from non existent channel %s", channelUsername)
-				response.Data = jSendFailData{
-					ErrorReason:  "channelUsername",
-					ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
+			if response.Data == nil {
+				// if JSON parsing doesn't fail
+				if rel.Content == "" && rel.Title == "" && rel.GenreDefining == "" && rel.Description == "" && len(rel.Genres) == 0 && len(rel.Authors) == 0 && rel.OwnerChannel == "" {
+					response.Data = jSendFailData{
+						ErrorReason:  "request",
+						ErrorMessage: "bad request, data sent doesn't contain update able data",
+					}
+					statusCode = http.StatusBadRequest
 				}
-				statusCode = http.StatusNotFound
-			default:
-				s.Logger.Printf("fetching of official catalog of channel failed because: %s", err.Error())
-				response.Data = jSendFailData{
-					ErrorReason:  "error",
-					ErrorMessage: "server error when fetching official catalog of channel",
-				}
-				statusCode = http.StatusInternalServerError
-			}
-			if k {
 				if response.Data == nil {
 					if response.Data == nil {
 						rel.ID = id
-						for i := 0; i < len(c.ReleaseIDs); i++ {
-							if c.ReleaseIDs[i] != rel.ID {
-								s.Logger.Printf("update attempt of release %d not in catalog of channel %s", id, c.ChannelUsername)
-								response.Data = jSendFailData{
-									ErrorReason:  "releaseID",
-									ErrorMessage: fmt.Sprintf("release of id %d not found in catalog", id),
-								}
-							}
-						}
-
-						rel, err = s.ReleaseService.UpdateRelease(rel)
+						rel, err = d.ReleaseService.UpdateRelease(rel)
 						switch err {
 						case nil:
 							if rel.Type == release.Image {
-								err := saveTempFilePermanentlyToPath(tmpFile, s.ImageStoragePath+rel.Content)
+								err := saveTempFilePermanentlyToPath(tmpFile, d.ImageStoragePath+rel.Content)
 								if err != nil {
-									s.Logger.Printf("updating of release failed because: %v", err)
+									d.Logger.Printf("updating of release failed because: %v", err)
 									response.Status = "error"
 									response.Message = "server error when updating release"
 									statusCode = http.StatusInternalServerError
-									_ = s.ReleaseService.DeleteRelease(rel.ID)
+									_ = d.ReleaseService.DeleteRelease(rel.ID)
 								}
 							}
 							if response.Message == "" {
-								s.Logger.Printf("success updating release %d", id)
+								d.Logger.Printf("success updating release %d", id)
 								response.Status = "success"
-								rel.Content = s.HostAddress + s.ImageServingRoute + url.PathEscape(rel.Content)
+								rel.Content = d.HostAddress + d.ImageServingRoute + url.PathEscape(rel.Content)
 								response.Data = *rel
 								// TODO delete old image if image updated
 							}
 						case release.ErrAttemptToChangeReleaseType:
-							s.Logger.Printf("update attempt of release type for release %d", id)
+							d.Logger.Printf("update attempt of release type for release %d", id)
 							response.Data = jSendFailData{
 								ErrorReason:  "type",
 								ErrorMessage: "release type cannot be changed",
 							}
 							statusCode = http.StatusNotFound
 						case release.ErrReleaseNotFound:
-							s.Logger.Printf("update attempt of non existing release %d", id)
+							d.Logger.Printf("update attempt of non existing release %d", id)
 							response.Data = jSendFailData{
 								ErrorReason:  "releaseID",
 								ErrorMessage: fmt.Sprintf("release of id %d not found", id),
@@ -1210,7 +1178,7 @@ func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 						case release.ErrSomeReleaseDataNotPersisted:
 							fallthrough
 						default:
-							s.Logger.Printf("update of release failed because: %v", err)
+							d.Logger.Printf("update of release failed because: %v", err)
 							response.Status = "error"
 							response.Message = "server error when adding release"
 							statusCode = http.StatusInternalServerError
@@ -1223,15 +1191,11 @@ func putReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-//TODO
-//// postReleaseInCatalog returns a handler for POST /channels/{channelUsername}/catalogs/{catalogID}
+// postReleaseInOfficialCatalog returns a handler for POST /channels/{channelUsername}/official
 func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		k := false
 		var response jSendResponse
 		response.Status = "fail"
-		vars := mux.Vars(r)
-		channelUsername := vars["channelUsername"]
 		statusCode := http.StatusCreated
 
 		newRelease := new(release.Release)
@@ -1250,147 +1214,108 @@ func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		if response.Data == nil {
+
+			vars := mux.Vars(r)
+			newRelease.OwnerChannel = vars["channelUsername"]
 			{
-				// this block checks for required fields
-				if newRelease.OwnerChannel == "" {
-					response.Data = jSendFailData{
-						ErrorReason:  "OwnerChannel",
-						ErrorMessage: "OwnerChannel is required",
+				if c, err := s.ChannelService.GetChannel(newRelease.OwnerChannel); err == nil {
+					found := false
+					for _, username := range c.AdminUsernames {
+						if username == r.Header.Get("authorized_username") {
+							found = true
+						}
 					}
-					// if required fields aren't present
-					s.Logger.Printf("bad add release request")
-					statusCode = http.StatusBadRequest
+					if !found {
+						s.Logger.Printf("unauthorized delete release of channel attempt")
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
 				} else {
-					{
-						// this block blocks users get release of catalog of channel if is not the admin of the channel herself accessing the route
-						c, _ := s.ChannelService.GetChannel(channelUsername)
-						adminUsername := c.AdminUsernames
-
-						one := false
-						for i := 0; i < len(adminUsername); i++ {
-							if adminUsername[i] == r.Header.Get("authorized_username") {
-								one = true
-							}
-						}
-						if one == false {
-							if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
-								s.Logger.Printf("unauthorized get release of catalog of channel attempt")
-								w.WriteHeader(http.StatusUnauthorized)
-								return
-
-							}
-						}
-					}
-					_, err := s.ChannelService.GetChannel(channelUsername)
-					switch err {
-					case nil:
-
-						k = true
-						s.Logger.Printf("success fetching official catalog of channel %s", channelUsername)
-					case channel.ErrChannelNotFound:
-						s.Logger.Printf("fetch attempt of official catalog from non existent channel %s", channelUsername)
-						response.Data = jSendFailData{
-							ErrorReason:  "channelUsername",
-							ErrorMessage: fmt.Sprintf("channel of %s not found", channelUsername),
-						}
-						statusCode = http.StatusNotFound
-					default:
-						s.Logger.Printf("fetching of official catalog of channel failed because: %s", err.Error())
-						response.Data = jSendFailData{
-							ErrorReason:  "error",
-							ErrorMessage: "server error when fetching official catalog of channel",
-						}
-						statusCode = http.StatusInternalServerError
+					s.Logger.Printf("put attempt on channel on non existent channel %s", newRelease.OwnerChannel)
+					response.Data = jSendFailData{
+						ErrorReason:  "channelUsername",
+						ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", newRelease.OwnerChannel),
 					}
 				}
 			}
-			if k {
-				if response.Data == nil {
-					{ // this block extracts the image file if necessary
-						switch newRelease.Type {
-						case release.Image:
-							var fileName string
-							var err error
-							tmpFile, fileName, err = saveImageFromRequest(r, "image")
-							switch err {
-							case nil:
-								defer tmpFile.Close()
-								defer os.Remove(tmpFile.Name())
-								s.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
-								newRelease.Content = generateFileNameForStorage(fileName, "release")
-							case errUnacceptedType:
-								response.Data = jSendFailData{
-									ErrorMessage: "image",
-									ErrorReason:  "only types image/jpeg & image/png are accepted",
-								}
-								statusCode = http.StatusBadRequest
-							case errReadingFromImage:
-								response.Data = jSendFailData{
-									ErrorReason:  "image",
-									ErrorMessage: "unable to read image file\nuse multipart-form for for posting Image Releases. A part named 'JSON' for Release data \nand a file called 'image' of image type JPG/PNG.",
-								}
-								statusCode = http.StatusBadRequest
-							default:
-								response.Status = "error"
-								response.Message = "server error when adding release"
-								statusCode = http.StatusInternalServerError
-							}
-						case release.Text:
-						default:
-							statusCode = http.StatusBadRequest
-							response.Data = jSendFailData{
-								ErrorMessage: "type can only be 'text' or 'image'",
-								ErrorReason:  "type",
-							}
-						}
-					}
-					if response.Data == nil {
-						s.Logger.Printf("trying to add release")
-
-						newRelease, err := s.ReleaseService.AddRelease(newRelease)
+			if response.Data == nil {
+				{ // this block extracts the image file if necessary
+					switch newRelease.Type {
+					case release.Image:
+						var fileName string
+						var err error
+						tmpFile, fileName, err = saveImageFromRequest(r, "image")
 						switch err {
 						case nil:
-							if newRelease.Type == release.Image {
-								err := saveTempFilePermanentlyToPath(tmpFile, s.ImageStoragePath+newRelease.Content)
-								if err != nil {
-									s.Logger.Printf("adding of release failed because: %v", err)
-									response.Status = "error"
-									response.Message = "server error when adding release"
-									statusCode = http.StatusInternalServerError
-									_ = s.ReleaseService.DeleteRelease(newRelease.ID)
-								}
+							defer tmpFile.Close()
+							defer os.Remove(tmpFile.Name())
+							s.Logger.Printf(fmt.Sprintf("temp file saved: %s", tmpFile.Name()))
+							newRelease.Content = generateFileNameForStorage(fileName, "release")
+						case errUnacceptedType:
+							response.Data = jSendFailData{
+								ErrorMessage: "image",
+								ErrorReason:  "only types image/jpeg & image/png are accepted",
 							}
-							if response.Message == "" {
-
-								response.Status = "success"
-								newRelease.OwnerChannel = channelUsername
-								if newRelease.Type == release.Image {
-									newRelease.Content = s.HostAddress + s.ImageServingRoute + url.PathEscape(newRelease.Content)
-								}
-
-								response.Data = *newRelease
-								s.Logger.Printf("success adding release %d to channel %s", newRelease.ID, newRelease.OwnerChannel)
+							statusCode = http.StatusBadRequest
+						case errReadingFromImage:
+							response.Data = jSendFailData{
+								ErrorReason:  "image",
+								ErrorMessage: "unable to read image file\nuse multipart-form for for posting Image Releases. A part named 'JSON' for Release data \nand a file called 'image' of image type JPG/PNG.",
 							}
-						case release.ErrSomeReleaseDataNotPersisted:
-							fallthrough
+							statusCode = http.StatusBadRequest
 						default:
-							_ = s.ReleaseService.DeleteRelease(newRelease.ID)
-							s.Logger.Printf("adding of release failed because: %v", err)
 							response.Status = "error"
 							response.Message = "server error when adding release"
 							statusCode = http.StatusInternalServerError
 						}
+					case release.Text:
+					default:
+						statusCode = http.StatusBadRequest
+						response.Data = jSendFailData{
+							ErrorMessage: "type can only be 'text' or 'image'",
+							ErrorReason:  "type",
+						}
+					}
+				}
+				if response.Data == nil {
+					s.Logger.Printf("trying to add release")
+
+					newRelease, err := s.ReleaseService.AddRelease(newRelease)
+					switch err {
+					case nil:
+						if newRelease.Type == release.Image {
+							err := saveTempFilePermanentlyToPath(tmpFile, s.ImageStoragePath+newRelease.Content)
+							if err != nil {
+								s.Logger.Printf("adding of release failed because: %v", err)
+								response.Status = "error"
+								response.Message = "server error when adding release"
+								statusCode = http.StatusInternalServerError
+								_ = s.ReleaseService.DeleteRelease(newRelease.ID)
+							}
+						}
+						if response.Message == "" {
+							response.Status = "success"
+							newRelease.Content = s.HostAddress + s.ImageServingRoute + url.PathEscape(newRelease.Content)
+							response.Data = *newRelease
+							s.Logger.Printf("success adding release %d to channel %s", newRelease.ID, newRelease.OwnerChannel)
+						}
+					case release.ErrSomeReleaseDataNotPersisted:
+						fallthrough
+					default:
+						_ = s.ReleaseService.DeleteRelease(newRelease.ID)
+						s.Logger.Printf("adding of release failed because: %v", err)
+						response.Status = "error"
+						response.Message = "server error when adding release"
+						statusCode = http.StatusInternalServerError
 					}
 				}
 			}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}
-
 }
 
-//TODO
-//// postReleaseInOfficialCatalog returns a handler for POST /channels/{channelUsername}/official
+/*//// postReleaseInOfficialCatalog returns a handler for POST /channels/{channelUsername}/official
 func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		k := false
@@ -1400,22 +1325,23 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 		vars := mux.Vars(r)
 		channelUsername := vars["channelUsername"]
 		{
-			// this block blocks users updating content of catalog of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
-			adminUsername := c.AdminUsernames
-
-			one := false
-			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("authorized_username") {
-					one = true
+			if c, err := s.ChannelService.GetChannel(channelUsername); err == nil {
+				found := false
+				for _, username := range c.AdminUsernames {
+					if username == r.Header.Get("authorized_username") {
+						found = true
+					}
 				}
-			}
-			if one == false {
-				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
-					s.Logger.Printf("unauthorized update catalog of  channel attempt")
+				if !found {
+					s.Logger.Printf("unauthorized delete release of channel attempt")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
-
+				}
+			} else {
+				s.Logger.Printf("put attempt on channel on non existent channel %s", channelUsername)
+				response.Data = jSendFailData{
+					ErrorReason:  "channelUsername",
+					ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelUsername),
 				}
 			}
 		}
@@ -1461,7 +1387,8 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 
 								}
 								if k {
-									err := s.ChannelService.AddReleaseToOfficialCatalog(channelUsername, releasePost.ReleaseID, releasePost.PostID)
+									err := s.ChannelService.
+									(channelUsername, releasePost.ReleaseID, releasePost.PostID)
 									switch err {
 									case nil:
 										s.Logger.Printf(fmt.Sprintf("success adding Release %d to channels %s's Catalog", releasePost.ReleaseID, channelUsername))
@@ -1514,10 +1441,10 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 				}
 			}
 		}
-
 		writeResponseToWriter(response, w, statusCode)
 	}
 }
+*/
 
 // getChannelPost returns a handler for GET /channels/{channelUsername}/Posts/{postIDs}
 func getChannelPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {

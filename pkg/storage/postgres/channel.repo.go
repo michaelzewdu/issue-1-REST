@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-//ChannelRepository...
-type ChannelRepository repository
+//channelRepository...
+type channelRepository repository
 
 // NewChannelRepository returns a new in PostgreSQL implementation of channel.Repository.
 // the database connection must be passed as the first argument
@@ -19,11 +19,11 @@ type ChannelRepository repository
 // the Repository might make use of them to fetch objects instead of implementing redundant logic.
 //Each none helper function if successful will try to cache.
 func NewChannelRepository(DB *sql.DB, allRepos *map[string]interface{}) channel.Repository {
-	return &ChannelRepository{DB, allRepos}
+	return &channelRepository{DB, allRepos}
 }
 
 // AddChannel takes in a channel.Channel struct and persists it in the database.
-func (repo *ChannelRepository) AddChannel(c *channel.Channel) error {
+func (repo *channelRepository) AddChannel(c *channel.Channel) error {
 	var err error
 
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".channels (username, name, description)
@@ -36,7 +36,7 @@ func (repo *ChannelRepository) AddChannel(c *channel.Channel) error {
 }
 
 // GetChannel retrieves a channel.Channel user.User based on the username passed.
-func (repo *ChannelRepository) GetChannel(channelUsername string) (*channel.Channel, error) {
+func (repo *channelRepository) GetChannel(channelUsername string) (*channel.Channel, error) {
 	var err error
 	var c = new(channel.Channel)
 
@@ -94,7 +94,7 @@ func (repo *ChannelRepository) GetChannel(channelUsername string) (*channel.Chan
 }
 
 // UpdateChannel updates a channel based on the passed in channel.Channel struct into channelUsername.
-func (repo *ChannelRepository) UpdateChannel(channelUsername string, c *channel.Channel) error {
+func (repo *channelRepository) UpdateChannel(channelUsername string, c *channel.Channel) error {
 	var err error
 	if c.Name != "" {
 		err = repo.execUpdateStatementOnColumn("name", c.Name, channelUsername)
@@ -118,7 +118,7 @@ func (repo *ChannelRepository) UpdateChannel(channelUsername string, c *channel.
 }
 
 // execUpdateStatementOnColumn is just a helper function that updates a certain column
-func (repo *ChannelRepository) execUpdateStatementOnColumn(column, value, username string) error {
+func (repo *channelRepository) execUpdateStatementOnColumn(column, value, username string) error {
 	_, err := repo.db.Exec(fmt.Sprintf(`UPDATE "issue#1".channels 
 									SET %s = $1 
 									WHERE username = $2`, column), value, username)
@@ -129,7 +129,7 @@ func (repo *ChannelRepository) execUpdateStatementOnColumn(column, value, userna
 }
 
 // DeleteChannel deletes a channel based on the passed in channelUsername.
-func (repo *ChannelRepository) DeleteChannel(channelUsername string) error {
+func (repo *channelRepository) DeleteChannel(channelUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channels
 							WHERE username = $1`, channelUsername)
 	if err != nil {
@@ -139,7 +139,7 @@ func (repo *ChannelRepository) DeleteChannel(channelUsername string) error {
 }
 
 // GetUnOfficialRelease is just a helper function that gets the UnOfficial Release List
-func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, error) {
+func (repo *channelRepository) GetUnOfficialRelease(username string) ([]int, error) {
 	var UnOfficialList []int
 	var Release int
 
@@ -169,7 +169,7 @@ func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, err
 }
 
 // GetOfficialRelease is just a helper function that gets the Official Release List
-func (repo *ChannelRepository) GetOfficialRelease(username string) ([]int, error) {
+func (repo *channelRepository) GetOfficialRelease(username string) ([]int, error) {
 	var OfficialList []int
 	var Release int
 
@@ -198,7 +198,7 @@ func (repo *ChannelRepository) GetOfficialRelease(username string) ([]int, error
 }
 
 // GetPosts is just a helper function that gets the Post List
-func (repo *ChannelRepository) GetPosts(username string) ([]int, error) {
+func (repo *channelRepository) GetPosts(username string) ([]int, error) {
 	var PostList []int
 	var Post int
 
@@ -226,7 +226,7 @@ func (repo *ChannelRepository) GetPosts(username string) ([]int, error) {
 }
 
 // GetUnOfficialRelease is just a helper function that gets the Stickied Post List
-func (repo *ChannelRepository) GetStickiedPost(username string) ([]int, error) {
+func (repo *channelRepository) GetStickiedPost(username string) ([]int, error) {
 	var stickied []int
 
 	var Post int
@@ -260,7 +260,7 @@ INNER JOIN "issue#1".posts ON channel_stickies.post_id =posts.id WHERE posts.cha
 }
 
 // GetOwner is just a helper function that gets the Owner
-func (repo *ChannelRepository) GetOwner(username string) (string, error) {
+func (repo *channelRepository) GetOwner(username string) (string, error) {
 	var owner string
 	var Admin string
 	var isOwner bool
@@ -293,7 +293,7 @@ func (repo *ChannelRepository) GetOwner(username string) (string, error) {
 // SearchChannel searches for channels according to the pattern.
 // If no pattern is provided, it returns all channels.
 // It makes use of pagination.
-func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.SortBy, sortOrder channel.SortOrder, limit, offset int) ([]*channel.Channel, error) {
+func (repo *channelRepository) SearchChannels(pattern string, sortBy channel.SortBy, sortOrder channel.SortOrder, limit, offset int) ([]*channel.Channel, error) {
 
 	var channels = make([]*channel.Channel, 0)
 	var err error
@@ -311,6 +311,9 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 			where username like '%' || $1 || '%'  OR name  like '%' || $1|| '%'
 			LIMIT $2 OFFSET $3`
 		rows, err = repo.db.Query(query, pattern, limit, offset)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying for channels failed because of: %v", err)
 	}
 
 	var creationTimeString string
@@ -375,7 +378,7 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 }
 
 // AddAdmin adds a User adminUsername to the channel channelUsername as an admin
-func (repo *ChannelRepository) AddAdmin(channelUsername string, adminUsername string) error {
+func (repo *channelRepository) AddAdmin(channelUsername string, adminUsername string) error {
 	var err error
 	owner := false
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".channel_admins (channel_username,"user",is_owner)
@@ -387,7 +390,7 @@ func (repo *ChannelRepository) AddAdmin(channelUsername string, adminUsername st
 }
 
 // DeleteAdmin deletes role of a User adminUsername of the channel channelUsername as an admin
-func (repo *ChannelRepository) DeleteAdmin(channelUsername string, adminUsername string) error {
+func (repo *channelRepository) DeleteAdmin(channelUsername string, adminUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_admins
 							WHERE channel_username = $1 AND "user"= $2`, channelUsername, adminUsername)
 	if err != nil {
@@ -397,7 +400,7 @@ func (repo *ChannelRepository) DeleteAdmin(channelUsername string, adminUsername
 }
 
 // GetAdmins gets a list of Admins of channel channelUsername
-func (repo *ChannelRepository) GetAdmins(channelUsername string) ([]string, error) {
+func (repo *channelRepository) GetAdmins(channelUsername string) ([]string, error) {
 	var AdminList []string
 	var Admin string
 	rows, err := repo.db.Query(`SELECT "user"
@@ -424,7 +427,7 @@ func (repo *ChannelRepository) GetAdmins(channelUsername string) ([]string, erro
 }
 
 // ChangeOwner gets the owner of channel channelUsername
-func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername string) error {
+func (repo *channelRepository) ChangeOwner(channelUsername string, ownerUsername string) error {
 	var err error
 	var owner bool = true
 	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins
@@ -436,9 +439,9 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 }
 
 // AddReleaseToOfficialCatalog adds a release releaseID into the Official Catalog channel channelUsername
-func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
+func (repo *channelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
 
-	_, err := repo.db.Exec(`INSERT INTO "issue#1".channel_official_catalog (channel_username,release_id,post_from_id)
+	_, err := repo.db.Exec(`INSERT INTO channel_official_catalog (channel_username,release_id,post_from_id)
 							VALUES ($1, $2,$3)`, channelUsername, releaseID, postID)
 	if err != nil {
 		return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
@@ -447,7 +450,7 @@ func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername strin
 }
 
 // DeleteReleaseFromCatalog deletes a release releaseID from Catalog of channel channelUsername
-func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
+func (repo *channelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".releases
 							WHERE owner_channel = $1 AND id = $2`, channelUsername, ReleaseID)
 	if err != nil {
@@ -457,7 +460,7 @@ func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, 
 }
 
 // DeleteReleaseFromOfficialCatalog deletes a release releaseID from Official Catalog of channel channelUsername
-func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
+func (repo *channelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
 
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_official_catalog
 							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID)
@@ -468,7 +471,7 @@ func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername 
 }
 
 // StickyPost stickies a post on channel channelUsername
-func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) error {
+func (repo *channelRepository) StickyPost(channelUsername string, postID int) error {
 	a, err := repo.GetStickiedPost(channelUsername)
 	if err != nil {
 		return fmt.Errorf("getting stickied posts failed because of: %s", err.Error())
@@ -493,7 +496,7 @@ func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) er
 }
 
 // DeleteStickiedPost deletes a stickied post from channel channelUsername
-func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
+func (repo *channelRepository) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
 	//TODO
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_stickies
 							WHERE post_id = $1`, stickiedPostID)
@@ -504,7 +507,7 @@ func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, sticki
 }
 
 // AddPicture persists the given name as the image_name for the user under the given username
-func (repo *ChannelRepository) AddPicture(channelUsername string, name string) error {
+func (repo *channelRepository) AddPicture(channelUsername string, name string) error {
 	_, err := repo.db.Exec(`INSERT INTO "issue#1".channel_pictures (channelname, image_name) 
 								VALUES ($1, $2)
 								ON CONFLICT(channelname) DO UPDATE
@@ -522,7 +525,7 @@ func (repo *ChannelRepository) AddPicture(channelUsername string, name string) e
 }
 
 // RemovePicture removes the username's tuple entry from the user_avatars table.
-func (repo *ChannelRepository) RemovePicture(channelUsername string) error {
+func (repo *channelRepository) RemovePicture(channelUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_pictures
 							WHERE channelname = $1`, channelUsername)
 	if err != nil {
@@ -532,7 +535,7 @@ func (repo *ChannelRepository) RemovePicture(channelUsername string) error {
 }
 
 // GetPicture gets the username's tuple entry from the user_avatars table.
-func (repo *ChannelRepository) GetPicture(ChannelUsername string) (string, error) {
+func (repo *channelRepository) GetPicture(ChannelUsername string) (string, error) {
 	var pictureURL string
 
 	rows, err := repo.db.Query(`SELECT image_name

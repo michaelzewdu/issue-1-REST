@@ -66,7 +66,8 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 									LIMIT $1 OFFSET $2`, by, order)
 		rows, err = repo.db.Query(query, limit, offset)
 	} else {
-		query = `SELECT id, owner_channel, type, creation_time
+		query = fmt.Sprintf(`
+				SELECT id, owner_channel, type, creation_time
 				FROM (
 				      (SELECT ts_rank(vector, query, 32) as rank, *
 				       FROM (
@@ -81,8 +82,8 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 				     (SELECT *
 				      FROM channel_official_catalog) as "coc*"
 				         )
-				ORDER BY rank DESC
-				LIMIT $2 OFFSET $3`
+				ORDER BY rank DESC, %s %s NULLS LAST
+				LIMIT $2 OFFSET $3`, by, order)
 		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
 	if err != nil {

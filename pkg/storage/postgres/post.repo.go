@@ -271,7 +271,9 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 			LIMIT $1 OFFSET $2`, by, order)
 		rows, err = repo.db.Query(query, limit, offset)
 	} else {
-		query = `SELECT id,
+		query = fmt.Sprintf(`
+						SELECT id,
+       					rank,
 				       COALESCE(posted_by, ''),
 				       COALESCE(channel_from, ''),
 				       COALESCE(title, ''),
@@ -286,19 +288,19 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 				            ) as rti
 				               NATURAL JOIN posts
 				          )
-				    ORDER BY rank DESC
 				     ) as "r*"
-			LIMIT $2 OFFSET $3`
+				    ORDER BY rank DESC, %s %s NULLS LAST
+			LIMIT $2 OFFSET $3`, by, order)
 		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for posts failed because of: %v", err)
 	}
 	defer rows.Close()
-
+	var temp float64
 	for rows.Next() {
 		p := post.Post{}
-		err := rows.Scan(&p.ID, &p.PostedByUsername, &p.OriginChannel, &p.Title, &p.Description, &p.CreationTime)
+		err := rows.Scan(&p.ID, &temp, &p.PostedByUsername, &p.OriginChannel, &p.Title, &p.Description, &p.CreationTime)
 		if err != nil {
 			return nil, post.ErrPostNotFound
 		}
