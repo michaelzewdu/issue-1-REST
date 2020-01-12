@@ -78,7 +78,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		limit := 25
 		offset := 0
-		var sort feed.Sorting
+		sort := feed.NotSet
 		{ // this block reads the query strings if any
 			switch sortQuery := r.URL.Query().Get("sort"); sortQuery {
 			case "hot":
@@ -168,8 +168,8 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		var sortBy feed.SortBy
-		var sortOrder feed.SortOrder
+		sortBy := feed.SortBySubscriptionTime
+		sortOrder := feed.SortDescending
 		{ // this block reads the query strings if any
 
 			sort := r.URL.Query().Get("sort")

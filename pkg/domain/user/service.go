@@ -49,10 +49,10 @@ const (
 	SortAscending  SortOrder = "ASC"
 	SortDescending SortOrder = "DESC"
 
-	SortCreationTime SortBy = "creation_time"
-	SortByUsername   SortBy = "username"
-	SortByFirstName  SortBy = "first_name"
-	SortByLastName   SortBy = "last_name"
+	SortByCreationTime SortBy = "creation_time"
+	SortByUsername     SortBy = "username"
+	SortByFirstName    SortBy = "first_name"
+	SortByLastName     SortBy = "last_name"
 )
 
 // ErrUserNotFound is returned when the the username specified isn't recognized
