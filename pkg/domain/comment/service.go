@@ -53,26 +53,34 @@ type service struct {
 	repo *Repository
 }
 
+// NewService returns a struct that implements the comment.Service interface
 func NewService(repo *Repository) Service {
 	return &service{repo: repo}
 }
 
+// AddComment adds an new comment based on the passed in struct
 func (s service) AddComment(c *Comment) (*Comment, error) {
 	return (*s.repo).AddComment(c)
 }
 
+// GetComment gets the comment stored under the given id.
 func (s service) GetComment(id int) (*Comment, error) {
 	return (*s.repo).GetComment(id)
 }
 
+// GetComment get's all the comments found under a single post.
+// This includes replies to comments.
 func (s service) GetComments(postID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error) {
 	return (*s.repo).GetComments(postID, string(by), string(order), limit, offset)
 }
 
+// GetReplies returns all the comments that are replies to the comment
+// under the given id.
 func (s service) GetReplies(commentID int, by SortBy, order SortOrder, limit, offset int) ([]*Comment, error) {
 	return (*s.repo).GetReplies(commentID, string(by), string(order), limit, offset)
 }
 
+// UpdateComment updates a comment entity based on the given struct.
 func (s service) UpdateComment(c *Comment) (*Comment, error) {
 	if _, err := (*s.repo).GetComment(c.ID); err != nil {
 		return nil, err
@@ -80,6 +88,7 @@ func (s service) UpdateComment(c *Comment) (*Comment, error) {
 	return (*s.repo).UpdateComment(c)
 }
 
+// DeleteComment removes the comment under the given id.
 func (s service) DeleteComment(id int) error {
 	return (*s.repo).DeleteComment(id)
 }

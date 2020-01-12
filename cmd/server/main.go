@@ -133,7 +133,7 @@ func main() {
 		services["Post"] = &setup.PostService
 	}
 	{
-		var commentDBRepo = postgres.NewRepository(db, &dbRepos)
+		var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
 		dbRepos["Comment"] = &commentDBRepo
 		var commentCacheRepo = memory.NewRepository(&commentDBRepo)
 		cacheRepos["Comment"] = &commentCacheRepo

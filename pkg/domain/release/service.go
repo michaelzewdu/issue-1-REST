@@ -56,7 +56,7 @@ type service struct {
 	repo *Repository
 }
 
-// NewService returns a struct that implements the release.Release interface
+// NewService returns a struct that implements the release.Service interface
 func NewService(repo *Repository) Service {
 	return &service{repo: repo}
 }

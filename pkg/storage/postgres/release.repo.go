@@ -12,7 +12,7 @@ type releaseRepository repository
 
 // NewReleaseRepository returns a struct that implements the release.Repository using
 // a PostgresSQL database.
-// A database connection of the same interface needs to be passed so that it can function.
+// A database connection needs to be passed so that it can function.
 func NewReleaseRepository(db *sql.DB, allRepos *map[string]interface{}) release.Repository {
 	return &releaseRepository{db: db, allRepos: allRepos}
 }

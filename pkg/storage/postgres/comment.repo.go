@@ -9,10 +9,14 @@ import (
 
 type commentRepository repository
 
-func NewRepository(DB *sql.DB, allRepos *map[string]interface{}) comment.Repository {
+// NewCommentRepository returns a struct that implements the comment.Repository using
+// a PostgresSQL database.
+// A database connection needs to be passed so that it can function.
+func NewCommentRepository(DB *sql.DB, allRepos *map[string]interface{}) comment.Repository {
 	return &commentRepository{DB, allRepos}
 }
 
+// AddComment persists the given struct into the database.
 func (repo commentRepository) AddComment(c *comment.Comment) (*comment.Comment, error) {
 	query := `INSERT INTO comments (post_from, reply_to, content, commented_by)
 				VALUES ($1, $2, $3, $4)
@@ -34,6 +38,7 @@ func (repo commentRepository) AddComment(c *comment.Comment) (*comment.Comment, 
 	return c, nil
 }
 
+// GetComment returns a comment.Comment under the given id from the database.
 func (repo commentRepository) GetComment(id int) (*comment.Comment, error) {
 	var err error
 	var c = new(comment.Comment)
@@ -49,6 +54,8 @@ func (repo commentRepository) GetComment(id int) (*comment.Comment, error) {
 	return c, nil
 }
 
+// GetComments returns all comments in the database that match the given post
+// id.
 func (repo commentRepository) GetComments(postID int, by string, order string, limit, offset int) ([]*comment.Comment, error) {
 	{ // block checks if post exits
 		var found bool
@@ -95,6 +102,8 @@ func (repo commentRepository) GetComments(postID int, by string, order string, l
 	return comments, nil
 }
 
+// GetComments returns all comments in the database that match the given reply_to
+// id.
 func (repo commentRepository) GetReplies(commentID int, by string, order string, limit, offset int) ([]*comment.Comment, error) {
 	{ // block checks if root comment exits
 		var found bool
@@ -141,6 +150,7 @@ func (repo commentRepository) GetReplies(commentID int, by string, order string,
 	return comments, nil
 }
 
+// UpdateComment updates a comment in the database according to the given struct.
 func (repo commentRepository) UpdateComment(c *comment.Comment) (*comment.Comment, error) {
 	var errs []error
 
@@ -166,6 +176,7 @@ func (repo commentRepository) UpdateComment(c *comment.Comment) (*comment.Commen
 	return c, err
 }
 
+// DeleteComment removes the comment under the given id from the database.
 func (repo commentRepository) DeleteComment(id int) error {
 	_, err := repo.db.Exec(`DELETE FROM comments
 							WHERE id = $1`, id)
