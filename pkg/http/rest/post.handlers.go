@@ -2,6 +2,7 @@ package rest
 
 import (
 	"fmt"
+	"gopkg.in/russross/blackfriday.v2"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,8 +18,15 @@ func sanitizePost(p *post.Post, s *Setup) {
 	// TODO validate email
 	p.OriginChannel = s.StrictSanitizer.Sanitize(p.OriginChannel)
 	p.Title = s.StrictSanitizer.Sanitize(p.Title)
-	p.Description = s.StrictSanitizer.Sanitize(p.Description)
-	
+	p.Description = string(s.MarkupSanitizer.SanitizeBytes(
+		blackfriday.Run(
+			[]byte(p.Description),
+			blackfriday.WithExtensions(blackfriday.CommonExtensions),
+		),
+	))
+	if p.Description == "<p></p>\n" {
+		p.Description = ""
+	}
 }
 
 // GET: /posts/:id ...getpost(id)
@@ -100,6 +108,9 @@ func postPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		{ // this block secures the route
+			// todo
+		}
 
 		if response.Data == nil {
 
@@ -129,7 +140,7 @@ func postPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if response.Data == nil {
-				sanitizePost(newPost,s)
+				sanitizePost(newPost, s)
 				s.Logger.Printf("trying to add post %s %s %s %s", newPost.PostedByUsername, newPost.Title, newPost.OriginChannel, newPost.Description)
 				pos, err := s.PostService.AddPost(newPost)
 				switch err {
@@ -175,70 +186,74 @@ func putPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
 			}
 			statusCode = http.StatusBadRequest
-		}else{
+		} else {
 			{ // this block blocks user updating of post if the poster didn't accessing the route
-			x,err:= s.PostService.GetPost(id)
-			if err==nil{
-				if x.PostedByUsername!= r.Header.Get("authorized_username"){
-					s.Logger.Printf("unauthorized update post attempt")
-					w.WriteHeader(http.StatusUnauthorized)
-					return
+				x, err := s.PostService.GetPost(id)
+				if err == nil {
+					if x.PostedByUsername != r.Header.Get("authorized_username") {
+						s.Logger.Printf("unauthorized update post attempt")
+						w.WriteHeader(http.StatusUnauthorized)
+						return
 					}
+				} else {
+					s.Logger.Printf("invalid delete comment request")
+					w.WriteHeader(http.StatusNotFound)
+					return
 				}
 			}
 
-		newPost := new(post.Post)
-		erro := json.NewDecoder(r.Body).Decode(newPost)
-		if erro != nil {
-			response.Data = jSendFailData{
-				ErrorReason: "request format",
-				ErrorMessage: `bad request, use format
+			newPost := new(post.Post)
+			erro := json.NewDecoder(r.Body).Decode(newPost)
+			if erro != nil {
+				response.Data = jSendFailData{
+					ErrorReason: "request format",
+					ErrorMessage: `bad request, use format
 			{"poster":"username len 5-22 chars",
 			"originChannel":"channel",
 			"title":"title",
 			"description":"description"
 			}`,
-			}
-			s.Logger.Printf("bad update post request")
-			statusCode = http.StatusBadRequest
-		}
-		if response.Data == nil {
-			// if JSON parsing doesn't fail
-
-			if newPost.PostedByUsername == "" && newPost.OriginChannel == "" && newPost.Title == "" && newPost.Description == "" {
-				response.Data = jSendFailData{
-					ErrorReason:  "request",
-					ErrorMessage: "request doesn't contain updatable data",
 				}
+				s.Logger.Printf("bad update post request")
 				statusCode = http.StatusBadRequest
-			} else {
-				sanitizePost(newPost,s)
-				pos, erron := s.PostService.UpdatePost(newPost, id)
-				switch erron {
-				case nil:
-					s.Logger.Printf("success put post %s %s %s %s %s", idRaw, pos.PostedByUsername, pos.OriginChannel, pos.Title, pos.Description)
-					response.Status = "success"
-					response.Data = *pos
-				case post.ErrPostNotFound:
-					response.Status = "error"
-					s.Logger.Printf("updation of Post failed because: %v", erron)
-					response.Data = jSendFailData{
-						ErrorReason:  "PostID",
-						ErrorMessage: fmt.Sprintf("Post of id %d not found", id),
-					}
-					statusCode = http.StatusNotFound
+			}
+			if response.Data == nil {
+				// if JSON parsing doesn't fail
 
-				default:
-					s.Logger.Printf("adding of post failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when adding post"
-					statusCode = http.StatusInternalServerError
+				if newPost.PostedByUsername == "" && newPost.OriginChannel == "" && newPost.Title == "" && newPost.Description == "" {
+					response.Data = jSendFailData{
+						ErrorReason:  "request",
+						ErrorMessage: "request doesn't contain updatable data",
+					}
+					statusCode = http.StatusBadRequest
+				} else {
+					sanitizePost(newPost, s)
+					pos, erron := s.PostService.UpdatePost(newPost, id)
+					switch erron {
+					case nil:
+						s.Logger.Printf("success put post %s %s %s %s %s", idRaw, pos.PostedByUsername, pos.OriginChannel, pos.Title, pos.Description)
+						response.Status = "success"
+						response.Data = *pos
+					case post.ErrPostNotFound:
+						response.Status = "error"
+						s.Logger.Printf("updation of Post failed because: %v", erron)
+						response.Data = jSendFailData{
+							ErrorReason:  "PostID",
+							ErrorMessage: fmt.Sprintf("Post of id %d not found", id),
+						}
+						statusCode = http.StatusNotFound
+
+					default:
+						s.Logger.Printf("adding of post failed because: %v", err)
+						response.Status = "error"
+						response.Message = "server error when adding post"
+						statusCode = http.StatusInternalServerError
+					}
 				}
 			}
+			writeResponseToWriter(response, w, statusCode)
 		}
-		writeResponseToWriter(response, w, statusCode)
-		}
-		
+
 	}
 }
 
@@ -263,12 +278,12 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 			statusCode = http.StatusBadRequest
 		} else {
 			{ // this block blocks user deleting of post if the poster didn't accessing the route
-			x,err:= d.PostService.GetPost(id)
-			if err==nil{
-				if x.PostedByUsername!= r.Header.Get("authorized_username"){
-					d.Logger.Printf("unauthorized update post attempt")
-					w.WriteHeader(http.StatusUnauthorized)
-					return
+				x, err := d.PostService.GetPost(id)
+				if err == nil {
+					if x.PostedByUsername != r.Header.Get("authorized_username") {
+						d.Logger.Printf("unauthorized update post attempt")
+						w.WriteHeader(http.StatusUnauthorized)
+						return
 					}
 				}
 			}
@@ -636,158 +651,144 @@ func putPostStar(s *Setup) func(http.ResponseWriter, *http.Request) {
 		idRaw := vars["id"]
 
 		id, err := strconv.Atoi(idRaw)
-		if err!=nil{
+		if err != nil {
 			s.Logger.Printf("update attempt of non invalid post id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "postID",
 				ErrorMessage: fmt.Sprintf("invalid postID %d", id),
 			}
 			statusCode = http.StatusBadRequest
-		}else{
-			
+		} else {
 
 			st := new(post.Star)
-		erro := json.NewDecoder(r.Body).Decode(st)
+			erro := json.NewDecoder(r.Body).Decode(st)
 
-		if erro != nil {
-			response.Data = jSendFailData{
-				ErrorReason: "request format",
-				ErrorMessage: `bad request, use format
-			{"username":"username len 5-22 chars",
-			"num_of_stars":"num_of_stars(0-5)"}`,
-			}
-			s.Logger.Printf("bad update star request")
-			statusCode = http.StatusBadRequest
-		} else {
-			username := st.Username
-			{// this block blocks user updating of post star if the star-er didn't accessing the route
-				x,err:= s.PostService.GetPost(id)
-				if err==nil{
-					star:=x.Stars
-					if _, found := star[r.Header.Get("authorized_username")]; !found{
-						s.Logger.Printf("unauthorized update post attempt")
-						w.WriteHeader(http.StatusUnauthorized)
-						return
-					}
-				}
-			
-				y,err:= s.PostService.GetPostStar(id,username)
-				if err==nil{
-					if y.Username!= r.Header.Get("authorized_username"){
-						s.Logger.Printf("unauthorized update post attempt")
-						w.WriteHeader(http.StatusUnauthorized)
-						return
-					}
-				}
-			}
-			if st.NumOfStars == 0 {
-				errs := s.PostService.DeletePostStar(id, username)
-				switch errs {
-				case nil:
-					response.Status = "success"
-					s.Logger.Printf("success deleting Star of Post %d and username %s", id, username)
-					response.Data = *st
-				case post.ErrPostNotFound:
-					response.Data = jSendFailData{
-						ErrorReason:  "postID",
-						ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
-					}
-					statusCode = http.StatusNotFound
-				case post.ErrStarNotFound:
-					response.Data = jSendFailData{
-						ErrorReason:  "username",
-						ErrorMessage: fmt.Sprintf("star of username %s not found", username),
-					}
-					statusCode = http.StatusNotFound
-				default:
-					s.Logger.Printf("deletion of Star failed because: %v", err)
-					response.Status = "error"
-					response.Message = "server error when adding Star"
-					statusCode = http.StatusInternalServerError
-				}
-			}
-			if st.NumOfStars > 5 || st.NumOfStars < 0 {
+			if erro != nil {
 				response.Data = jSendFailData{
 					ErrorReason: "request format",
 					ErrorMessage: `bad request, use format
-				{"username":"username len 5-22 chars",
-				"num_of_stars":"num_of_stars(0-5)"}`,
+			{"username":"username len 5-22 chars",
+			"stars":"number of stars 0-5"}`,
 				}
 				s.Logger.Printf("bad update star request")
 				statusCode = http.StatusBadRequest
-			}
-			if response.Data == nil {
-				_, errr := s.PostService.GetPostStar(id, username)
-				switch errr {
-				case nil:
-					newStar, w := s.PostService.UpdatePostStar(id, st)
-					
-					switch w {
+			} else {
+				username := st.Username
+				{ // this block secures the route
+					if username != r.Header.Get("authorized_username") {
+						s.Logger.Printf("unauthorized post Comment request")
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+				}
+				if st.NumOfStars == 0 {
+					errs := s.PostService.DeletePostStar(id, username)
+					switch errs {
 					case nil:
 						response.Status = "success"
-						response.Data = *newStar
-						s.Logger.Printf("successful in updating Star of Post %d and username %s", id, username)
+						s.Logger.Printf("success deleting Star of Post %d and username %s", id, username)
+						response.Data = *st
 					case post.ErrPostNotFound:
 						response.Data = jSendFailData{
 							ErrorReason:  "postID",
 							ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
 						}
 						statusCode = http.StatusNotFound
-					case post.ErrUserNotFound:
+					case post.ErrStarNotFound:
 						response.Data = jSendFailData{
 							ErrorReason:  "username",
 							ErrorMessage: fmt.Sprintf("star of username %s not found", username),
 						}
 						statusCode = http.StatusNotFound
 					default:
-						s.Logger.Printf("updating of post star failed because: %v", w)
+						s.Logger.Printf("deletion of Star failed because: %v", err)
 						response.Status = "error"
-						response.Message = "server error when updating post star"
+						response.Message = "server error when adding Star"
 						statusCode = http.StatusInternalServerError
 					}
-				case post.ErrPostNotFound:
+				}
+				if st.NumOfStars > 5 || st.NumOfStars < 0 {
 					response.Data = jSendFailData{
-						ErrorReason:  "postID",
-						ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+						ErrorReason: "request format",
+						ErrorMessage: `bad request, use format
+				{"username":"username len 5-22 chars",
+				"num_of_stars":"num_of_stars(0-5)"}`,
 					}
-					statusCode = http.StatusNotFound
-				
-				case post.ErrStarNotFound:
-					
-					newStar, e := s.PostService.AddPostStar(id, st)
-					switch e {
+					s.Logger.Printf("bad update star request")
+					statusCode = http.StatusBadRequest
+				}
+				if response.Data == nil {
+					_, errr := s.PostService.GetPostStar(id, username)
+					switch errr {
 					case nil:
-						
-						response.Status = "success"
-						response.Data = *newStar
-						s.Logger.Printf("successful in adding Star of Post %d and username %s", id, username)
+						newStar, w := s.PostService.UpdatePostStar(id, st)
+
+						switch w {
+						case nil:
+							response.Status = "success"
+							response.Data = *newStar
+							s.Logger.Printf("successful in updating Star of Post %d and username %s", id, username)
+						case post.ErrPostNotFound:
+							response.Data = jSendFailData{
+								ErrorReason:  "postID",
+								ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+							}
+							statusCode = http.StatusNotFound
+						case post.ErrUserNotFound:
+							response.Data = jSendFailData{
+								ErrorReason:  "username",
+								ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+							}
+							statusCode = http.StatusNotFound
+						default:
+							s.Logger.Printf("updating of post star failed because: %v", w)
+							response.Status = "error"
+							response.Message = "server error when updating post star"
+							statusCode = http.StatusInternalServerError
+						}
 					case post.ErrPostNotFound:
 						response.Data = jSendFailData{
 							ErrorReason:  "postID",
 							ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
 						}
 						statusCode = http.StatusNotFound
-					case post.ErrUserNotFound:
-						response.Data = jSendFailData{
-							ErrorReason:  "username",
-							ErrorMessage: fmt.Sprintf("star of username %s not found", username),
-						}
-						statusCode = http.StatusNotFound
-					default:
-						s.Logger.Printf("adding of post star failed because: %v", w)
-						response.Status = "error"
-						response.Message = "server error when adding post star"
-						statusCode = http.StatusInternalServerError
-					}
-				default:
-					s.Logger.Printf("fetching of post star failed because: %v", errr)
-					response.Status = "error"
-					response.Message = "server error when fetching post star"
-					statusCode = http.StatusInternalServerError
 
+					case post.ErrStarNotFound:
+
+						newStar, e := s.PostService.AddPostStar(id, st)
+						switch e {
+						case nil:
+
+							response.Status = "success"
+							response.Data = *newStar
+							s.Logger.Printf("successful in adding Star of Post %d and username %s", id, username)
+						case post.ErrPostNotFound:
+							response.Data = jSendFailData{
+								ErrorReason:  "postID",
+								ErrorMessage: fmt.Sprintf("star of postID %d not found", id),
+							}
+							statusCode = http.StatusNotFound
+						case post.ErrUserNotFound:
+							response.Data = jSendFailData{
+								ErrorReason:  "username",
+								ErrorMessage: fmt.Sprintf("star of username %s not found", username),
+							}
+							statusCode = http.StatusNotFound
+						default:
+							s.Logger.Printf("adding of post star failed because: %v", w)
+							response.Status = "error"
+							response.Message = "server error when adding post star"
+							statusCode = http.StatusInternalServerError
+						}
+					default:
+						s.Logger.Printf("fetching of post star failed because: %v", errr)
+						response.Status = "error"
+						response.Message = "server error when fetching post star"
+						statusCode = http.StatusInternalServerError
+
+					}
 				}
 			}
-		}
 		}
 		writeResponseToWriter(response, w, statusCode)
 	}

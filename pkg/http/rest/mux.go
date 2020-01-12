@@ -73,6 +73,7 @@ func NewMux(s *Setup) *mux.Router {
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
+	attachPostRoutesToRouters(mainRouter, secureRouter, s)
 
 	return mainRouter
 }
@@ -109,14 +110,14 @@ func attachFeedRoutesToRouters(secureRouter *mux.Router, setup *Setup) {
 }
 func attachPostRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
 	mainRouter.HandleFunc("/posts", getPosts(setup)).Methods("GET")
-	mainRouter.HandleFunc("/posts", postPost(setup)).Methods("POST")
+	secureRouter.HandleFunc("/posts", postPost(setup)).Methods("POST")
 	//TODO secure these routes
 	mainRouter.HandleFunc("/posts/{id}", getPost(setup)).Methods("GET")
-	mainRouter.HandleFunc("/posts/{id}", putPost(setup)).Methods("PUT")
-	mainRouter.HandleFunc("/posts/{id}", deletePost(setup)).Methods("DELETE")
+	secureRouter.HandleFunc("/posts/{id}", putPost(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/posts/{id}", deletePost(setup)).Methods("DELETE")
 	mainRouter.HandleFunc("/posts/{id}/stars", getPostStars(setup)).Methods("GET")
 	mainRouter.HandleFunc("/posts/{id}/stars/{username}", getPostStar(setup)).Methods("GET")
-	mainRouter.HandleFunc("/posts/{id}/stars", putPostStar(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/posts/{id}/stars", putPostStar(setup)).Methods("PUT")
 
 }
 

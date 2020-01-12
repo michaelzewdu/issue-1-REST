@@ -74,10 +74,9 @@ func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			}
 			if response.Data == nil {
 				{ // this block secures the route
-					// todo
 					if c.Commenter != r.Header.Get("authorized_username") {
 						s.Logger.Printf("unauthorized post Comment request")
-						w.WriteHeader(http.StatusForbidden)
+						w.WriteHeader(http.StatusUnauthorized)
 						return
 					}
 				}
@@ -352,7 +351,7 @@ func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if temp, err := s.CommentService.GetComment(id); err == nil {
 				if temp.Commenter != r.Header.Get("authorized_username") {
 					s.Logger.Printf("unauthorized patch Comment request")
-					w.WriteHeader(http.StatusForbidden)
+					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
 			} else {
@@ -445,7 +444,7 @@ func deleteComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if temp, err := s.CommentService.GetComment(id); err == nil {
 				if temp.Commenter != r.Header.Get("authorized_username") {
 					s.Logger.Printf("unauthorized patch Comment request")
-					w.WriteHeader(http.StatusForbidden)
+					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
 			} else {

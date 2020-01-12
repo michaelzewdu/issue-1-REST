@@ -90,7 +90,7 @@ func (repo *postRepository) getComments(id int) ([]int, error) {
 
 	rows, err := repo.db.Query(`SELECT id
 								FROM "issue#1".comments
-								WHERE post_id = $1`, id)
+								WHERE post_from = $1`, id)
 	if err != nil {
 		return nil, fmt.Errorf("querying for post contents failed because of: %v", err)
 	}
@@ -244,7 +244,7 @@ func (repo postRepository) execUpdateStatementOnColumnIntoContents(column string
 	return nil
 }
 func (repo postRepository) execUpdateStatementOnColumnIntoStars(value map[string]int, id int) error {
-	query := `UPDATE posts_stars
+	query := `UPDATE post_stars
 				SET username = $1, star_count=$2
 				WHERE post_id = $3`
 	for k, v := range value {
