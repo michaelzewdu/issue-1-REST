@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 	"net/url"
 	"os"
 
@@ -74,6 +76,7 @@ func getChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
 // postChannel returns a handler for POST /channels requests
 func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +131,7 @@ func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if response.Data == nil {
 				s.Logger.Printf("trying to add channel %s %s %s ", c.ChannelUsername, c.Name, c.Description)
 				if &c != nil {
-					err := s.ChannelService.AddChannel(&c)
+					err := s.ChannelService.AddChannel(c)
 					switch err {
 					case nil:
 						response.Status = "success"
@@ -1461,7 +1464,7 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 
 								}
 								if k {
-									err := s.ChannelService.AddReleaseToOfficialCatalog(channelUsername, releasePost.ReleaseID, releasePost.PostID)
+									err := s.ChannelService.AddReleaseToOfficialCatalog(channelUsername, releasePost.ReleaseID)
 									switch err {
 									case nil:
 										s.Logger.Printf(fmt.Sprintf("success adding Release %d to channels %s's Catalog", releasePost.ReleaseID, channelUsername))

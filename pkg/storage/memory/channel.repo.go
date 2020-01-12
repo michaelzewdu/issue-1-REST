@@ -135,8 +135,8 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 }
 
 // AddReleaseToOfficialCatalog calls the DB repo AddReleaseToOfficialCatalog function.
-func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
-	err := (*repo.secondaryRepo).AddReleaseToOfficialCatalog(channelUsername, releaseID, postID)
+func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int) error {
+	err := (*repo.secondaryRepo).AddReleaseToOfficialCatalog(channelUsername, releaseID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
 		if err != nil {

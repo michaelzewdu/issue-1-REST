@@ -18,9 +18,9 @@ type ChannelRepository repository
 // found in the different services of the project must be passed as a second argument as
 // the Repository might make use of them to fetch objects instead of implementing redundant logic.
 //Each none helper function if successful will try to cache.
-func NewChannelRepository(DB *sql.DB, allRepos *map[string]interface{}) channel.Repository {
-	return &ChannelRepository{DB, allRepos}
-}
+// func NewChannelRepository(DB *sql.DB, allRepos *map[string]interface{}) channel.Repository {
+// 	return &ChannelRepository{DB, allRepos}
+// }
 
 // AddChannel takes in a channel.Channel struct and persists it in the database.
 func (repo *ChannelRepository) AddChannel(c *channel.Channel) error {
@@ -436,11 +436,11 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 // AddReleaseToOfficialCatalog adds a release releaseID into the Official Catalog channel channelUsername
 func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
 
-	_, err := repo.db.Exec(`INSERT INTO "issue#1".channel_official_catalog (channel_username,release_id,post_from_id)
-							VALUES ($1, $2,$3)`, channelUsername, releaseID, postID)
-	if err != nil {
-		return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
-	}
+	// _, err := repo.db.Exec(`INSERT INTO "issue#1".channel_official_catalog (channel_username,release_id,post_from_id)
+	// 						VALUES ($1, $2,$3)`, channelUsername, releaseID, postID)
+	// if err != nil {
+	// 	return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
+	// }
 	return nil
 }
 

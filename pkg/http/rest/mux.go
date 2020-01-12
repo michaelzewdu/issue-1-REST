@@ -3,9 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/microcosm-cc/bluemonday"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
-	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"io"
 	"io/ioutil"
 	"log"
@@ -13,6 +10,10 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"
@@ -118,6 +119,8 @@ func attachPostRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setu
 	mainRouter.HandleFunc("/posts/{id}", getPost(setup)).Methods("GET")
 	secureRouter.HandleFunc("/posts/{id}", putPost(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/posts/{id}", deletePost(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/posts/{id}/releases", getPostReleases(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{id}/comments", getPostComments(setup)).Methods("GET")
 	mainRouter.HandleFunc("/posts/{id}/stars", getPostStars(setup)).Methods("GET")
 	mainRouter.HandleFunc("/posts/{id}/stars/{username}", getPostStar(setup)).Methods("GET")
 	secureRouter.HandleFunc("/posts/{id}/stars", putPostStar(setup)).Methods("PUT")
