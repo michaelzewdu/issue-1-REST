@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 )
@@ -41,6 +42,7 @@ type Dependencies struct {
 	FeedService     feed.Service
 	ChannelService  channel.Service
 	ReleaseService  release.Service
+	PostService     post.Service
 	CommentService  comment.Service
 	jwtBackend      *JWTAuthenticationBackend
 	Logger          *log.Logger
@@ -74,6 +76,7 @@ func NewMux(s *Setup) *mux.Router {
 	attachChannelRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
+	attachPostRoutesToRouters(mainRouter, secureRouter, s)
 
 	return mainRouter
 }
@@ -106,6 +109,18 @@ func attachFeedRoutesToRouters(secureRouter *mux.Router, setup *Setup) {
 	secureRouter.HandleFunc("/users/{username}/feed/channels", postFeedChannel(setup)).Methods("POST")
 	secureRouter.HandleFunc("/users/{username}/feed", putFeed(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/users/{username}/feed/channels/{channelname}", deleteFeedChannel(setup)).Methods("DELETE")
+
+}
+func attachPostRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *Setup) {
+	mainRouter.HandleFunc("/posts", getPosts(setup)).Methods("GET")
+	secureRouter.HandleFunc("/posts", postPost(setup)).Methods("POST")
+	//TODO secure these routes
+	mainRouter.HandleFunc("/posts/{id}", getPost(setup)).Methods("GET")
+	secureRouter.HandleFunc("/posts/{id}", putPost(setup)).Methods("PUT")
+	secureRouter.HandleFunc("/posts/{id}", deletePost(setup)).Methods("DELETE")
+	mainRouter.HandleFunc("/posts/{id}/stars", getPostStars(setup)).Methods("GET")
+	mainRouter.HandleFunc("/posts/{id}/stars/{username}", getPostStar(setup)).Methods("GET")
+	secureRouter.HandleFunc("/posts/{id}/stars", putPostStar(setup)).Methods("PUT")
 
 }
 

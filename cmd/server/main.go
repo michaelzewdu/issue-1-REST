@@ -7,6 +7,7 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/comment"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/feed"
+	"github.com/slim-crown/issue-1-REST/pkg/domain/post"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/domain/user"
 	"github.com/slim-crown/issue-1-REST/pkg/http/rest"
@@ -122,6 +123,14 @@ func main() {
 		cacheRepos["Release"] = &releaseCacheRepo
 		setup.ReleaseService = release.NewService(&releaseCacheRepo)
 		services["Release"] = &setup.ReleaseService
+	}
+	{
+		var postDBRepo = postgres.NewPostRepository(db, &dbRepos)
+		dbRepos["Post"] = &postDBRepo
+		var postCacheRepo = memory.NewPostRepository(&postDBRepo)
+		cacheRepos["Post"] = &postCacheRepo
+		setup.PostService = post.NewService(&postCacheRepo)
+		services["Post"] = &setup.PostService
 	}
 	{
 		var commentDBRepo = postgres.NewRepository(db, &dbRepos)
