@@ -38,8 +38,8 @@ func getChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			response.Status = "success"
 			{
 				// this block sanitizes the returned User if it's not the user herself accessing the route
-				if channelUsername != r.Header.Get("username") {
-					s.Logger.Printf("user %s fetched channel %s", r.Header.Get("username"), c.ChannelUsername)
+				if channelUsername != r.Header.Get("authorized_username") {
+					s.Logger.Printf("user %s fetched channel %s", r.Header.Get("authorized_username"), c.ChannelUsername)
 					c.AdminUsernames = nil
 					c.ReleaseIDs = nil
 					c.OwnerUsername = ""
@@ -188,7 +188,7 @@ func putChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -356,7 +356,7 @@ func deleteChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -403,7 +403,7 @@ func getAdmins(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -457,10 +457,10 @@ func putAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			c, _ := s.ChannelService.GetChannel(channelUsername)
 			adminUsername := c.AdminUsernames
 			s.Logger.Printf(adminUsername[0], adminUsername[1])
-			s.Logger.Printf(r.Header.Get("username"))
+			s.Logger.Printf(r.Header.Get("authorized_username"))
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					s.Logger.Printf("found sliimy")
 					one = true
 
@@ -523,7 +523,7 @@ func deleteAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -585,7 +585,7 @@ func getOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -636,7 +636,7 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			// this block blocks users updating owner of channel if is not the admin of the channel herself accessing the route
 			c, _ := s.ChannelService.GetChannel(channelUsername)
 			ownerUsername := c.OwnerUsername
-			if ownerUsername == r.Header.Get("username") {
+			if ownerUsername == r.Header.Get("authorized_username") {
 				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
 					s.Logger.Printf("unauthorized update owner of channel attempt")
 					w.WriteHeader(http.StatusUnauthorized)
@@ -692,7 +692,7 @@ func getCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -780,7 +780,7 @@ func deleteReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Requ
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -852,7 +852,7 @@ func deleteReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *h
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -923,7 +923,7 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -1015,7 +1015,7 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -1246,7 +1246,7 @@ func deleteStickiedPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -1315,7 +1315,7 @@ func stickyPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -1428,7 +1428,7 @@ func putChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
@@ -1523,7 +1523,7 @@ func deleteChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
-				if adminUsername[i] == r.Header.Get("username") {
+				if adminUsername[i] == r.Header.Get("authorized_username") {
 					one = true
 				}
 			}
