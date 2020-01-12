@@ -142,24 +142,23 @@ func (repo *ChannelRepository) DeleteChannel(channelUsername string) error {
 func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, error) {
 	var UnOfficialList []int
 	var Release int
-	var official bool
-	rows, err := repo.db.Query(`SELECT release_id,is_official
-                FROM "issue#1".channel_catalog
-                WHERE channel_username = $1`, username)
+
+	rows, err := repo.db.Query(`SELECT id
+                FROM "issue#1".releases
+                WHERE owner_channel = $1`, username)
 	if err != nil {
 		return nil, fmt.Errorf("querying for unofficial catalog failed because of: %v", err)
 	}
 	defer rows.Close()
 	i := 0
 	for rows.Next() {
-		err := rows.Scan(&Release, &official)
+		err := rows.Scan(&Release)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
-		if official == false {
 
-			UnOfficialList = append(UnOfficialList, Release)
-		}
+		UnOfficialList = append(UnOfficialList, Release)
+
 		i++
 	}
 	err = rows.Err()
@@ -173,23 +172,22 @@ func (repo *ChannelRepository) GetUnOfficialRelease(username string) ([]int, err
 func (repo *ChannelRepository) GetOfficialRelease(username string) ([]int, error) {
 	var OfficialList []int
 	var Release int
-	var official bool
-	rows, err := repo.db.Query(`SELECT release_id,is_official
-                FROM "issue#1".channel_catalog
+
+	rows, err := repo.db.Query(`SELECT release_id
+                FROM "issue#1".channel_official_catalog
                 WHERE channel_username = $1`, username)
 	if err != nil {
-		return nil, fmt.Errorf("querying for unofficial catalog failed because of: %v", err)
+		return nil, fmt.Errorf("querying for official catalog failed because of: %v", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&Release, &official)
+		err := rows.Scan(&Release)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
-		if official == true {
-			OfficialList = append(OfficialList, Release)
-		}
+
+		OfficialList = append(OfficialList, Release)
 
 	}
 	err = rows.Err()
@@ -296,6 +294,7 @@ func (repo *ChannelRepository) GetOwner(username string) (string, error) {
 // If no pattern is provided, it returns all channels.
 // It makes use of pagination.
 func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.SortBy, sortOrder channel.SortOrder, limit, offset int) ([]*channel.Channel, error) {
+
 	var channels = make([]*channel.Channel, 0)
 	var err error
 	var rows *sql.Rows
@@ -333,31 +332,31 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 
 		admins, err := repo.GetAdmins(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get admins because of: %s", err.Error())
 		}
 		owner, err := repo.GetOwner(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get owner because of: %s", err.Error())
 		}
 		stickiedPosts, err := repo.GetStickiedPost(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get stickied posts because of: %s", err.Error())
 		}
 		posts, err := repo.GetPosts(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get posts because of: %s", err.Error())
 		}
 		unOfficialReleases, err := repo.GetUnOfficialRelease(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get official realeases because of: %s", err.Error())
 		}
-		officialReleases, err := repo.GetUnOfficialRelease(c.ChannelUsername)
+		officialReleases, err := repo.GetOfficialRelease(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get official realeases because of: %s", err.Error())
 		}
 		pictureURL, err := repo.GetPicture(c.ChannelUsername)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get bookmarked posts because of: %s", err.Error())
+			return nil, fmt.Errorf("unable to get picture because of: %s", err.Error())
 		}
 		c.AdminUsernames = admins
 		c.OwnerUsername = owner
@@ -437,21 +436,20 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 }
 
 // AddReleaseToOfficialCatalog adds a release releaseID into the Official Catalog channel channelUsername
-func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int) error {
-	isOfficial := true
-	_, err := repo.db.Exec(`UPDATE "issue#1".channel_catalog
-							SET is_official = $3
-							WHERE channel_username = $1 AND release_id = $2`, channelUsername, releaseID, isOfficial)
+func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
+
+	_, err := repo.db.Exec(`INSERT INTO "issue#1".channel_official_catalog (channel_username,release_id,post_from_id)
+							VALUES ($1, $2,$3)`, channelUsername, releaseID, postID)
 	if err != nil {
-		return fmt.Errorf("deletion of tuple from channel_catalogs because of: %s", err.Error())
+		return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
 	}
 	return nil
 }
 
 // DeleteReleaseFromCatalog deletes a release releaseID from Catalog of channel channelUsername
 func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
-	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_catalog
-							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID)
+	_, err := repo.db.Exec(`DELETE FROM "issue#1".releases
+							WHERE owner_channel = $1 AND id = $2`, channelUsername, ReleaseID)
 	if err != nil {
 		return fmt.Errorf("deletion of tuple from channel_catalogs because of: %s", err.Error())
 	}
@@ -460,10 +458,9 @@ func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, 
 
 // DeleteReleaseFromOfficialCatalog deletes a release releaseID from Official Catalog of channel channelUsername
 func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
-	isOfficial := false
-	_, err := repo.db.Exec(`UPDATE "issue#1".channel_catalog
-							SET is_official = $3
-							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID, isOfficial)
+
+	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_official_catalog
+							WHERE channel_username = $1 AND release_id = $2`, channelUsername, ReleaseID)
 	if err != nil {
 		return fmt.Errorf("deletion of tuple from channel_catalogs because of: %s", err.Error())
 	}
