@@ -262,13 +262,35 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 	var posts = make([]*post.Post, 0)
 	var err error
 	var rows *sql.Rows
-
-	rows, err = repo.db.Query(fmt.Sprintf(`
+	var query string
+	if pattern == "" {
+		query = fmt.Sprintf(`
 			SELECT id,COALESCE(posted_by, ''), COALESCE(channel_from, ''), COALESCE(title, ''), COALESCE(description, ''),creation_time
 			FROM "issue#1".posts
 			ORDER BY %s %s NULLS LAST
-			LIMIT $1 OFFSET $2`, by, order), limit, offset)
-
+			LIMIT $1 OFFSET $2`, by, order)
+		rows, err = repo.db.Query(query, limit, offset)
+	} else {
+		query = `SELECT id,
+				       COALESCE(posted_by, ''),
+				       COALESCE(channel_from, ''),
+				       COALESCE(title, ''),
+				       COALESCE(description, ''),
+				       creation_time
+				FROM (SELECT ts_rank(vector, query) as rank, *
+				      FROM (
+				            (select post_id as id, vector, query
+				             from posts_tsvs,
+				                  websearch_to_tsquery('simple', $1) query
+				             where vector @@ query
+				            ) as rti
+				               NATURAL JOIN posts
+				          )
+				    ORDER BY rank DESC
+				     ) as "r*"
+			LIMIT $2 OFFSET $3`
+		rows, err = repo.db.Query(query, pattern, limit, offset)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for posts failed because of: %v", err)
 	}

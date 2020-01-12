@@ -299,17 +299,19 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 	var channels = make([]*channel.Channel, 0)
 	var err error
 	var rows *sql.Rows
+	var query string
 	if pattern == "" {
-		rows, err = repo.db.Query(fmt.Sprintf(`(SELECT username,name, COALESCE(description, ''),creation_time 
+		query = fmt.Sprintf(`(SELECT username,name, COALESCE(description, ''),creation_time 
 												FROM "issue#1".channels) 
 												ORDER BY %s %s NULLS LAST
-												LIMIT $1 OFFSET $2`, sortBy, sortOrder), limit, offset)
-		if err != nil {
-			return nil, fmt.Errorf("querying for channels failed because of: %s", err.Error())
-		}
-		defer rows.Close()
+												LIMIT $1 OFFSET $2`, sortBy, sortOrder)
+		rows, err = repo.db.Query(query, limit, offset)
 	} else {
-		// TODO actual search queries
+		query = `SELECT username,name, COALESCE(description, ''),creation_time 
+			from channels
+			where username like '%' || $1 || '%'  OR name  like '%' || $1|| '%'
+			LIMIT $2 OFFSET $3`
+		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
 
 	var creationTimeString string

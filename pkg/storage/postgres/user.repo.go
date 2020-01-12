@@ -205,20 +205,21 @@ func (repo *userRepository) SearchUser(pattern, sortBy, sortOrder string, limit,
 	var err error
 	var rows *sql.Rows
 
-	//if pattern == "" {
-	rows, err = repo.db.Query(fmt.Sprintf(`
+	if pattern == "" {
+		rows, err = repo.db.Query(fmt.Sprintf(`
 		SELECT users.username, email, COALESCE(first_name, ''), COALESCE(middle_name, ''), COALESCE(last_name, ''), creation_time, COALESCE(bio, ''), COALESCE(image_name, '')
 		FROM users LEFT JOIN users_bio ub on users.username = ub.username LEFT JOIN user_avatars ua on users.username = ua.username
 		ORDER BY %s %s NULLS LAST
 		LIMIT $1 OFFSET $2`, sortBy, sortOrder), limit, offset)
-	/*} else {
-		rows, err = repo.db.Query(fmt.Sprintf(`
+	} else {
+		query := fmt.Sprintf(`
 		SELECT users.username, email, COALESCE(first_name, ''), COALESCE(middle_name, ''), COALESCE(last_name, ''), creation_time, COALESCE(bio, ''), COALESCE(image_name, '')
 		FROM users LEFT JOIN users_bio ub on users.username = ub.username LEFT JOIN user_avatars ua on users.username = ua.username
-		WHERE users.username LIKE '%' || $3 || '%' OR first_name LIKE '%' || $3 || '%' OR last_name LIKE '%' || $3 || '%'
+		WHERE users.username ILIKE '%%' || $3 || '%%' OR first_name ILIKE '%%' || $3 || '%%' OR last_name ILIKE '%%' || $3 || '%%'
 		ORDER BY %s %s NULLS LAST
-		LIMIT $1 OFFSET $2`, sortBy, sortOrder), limit, offset, pattern)
-	}*/
+		LIMIT $1 OFFSET $2`, sortBy, sortOrder)
+		rows, err = repo.db.Query(query, limit, offset, pattern)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for users failed because of: %v", err)
 	}
