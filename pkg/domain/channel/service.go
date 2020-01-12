@@ -15,7 +15,7 @@ type Service interface {
 	ChangeOwner(channelUsername string, ownerUsername string) error
 	DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error
 	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error
-	AddReleaseToOfficialCatalog(channelUsername string, releaseID int) error
+	AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error
 	DeleteStickiedPost(channelUsername string, stickiedPostID int) error
 	StickyPost(channelUsername string, postID int) error
 	AddPicture(channelUsername string, name string) error
@@ -32,7 +32,7 @@ type Repository interface {
 	ChangeOwner(channelUsername string, ownerUsername string) error
 	DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error
 	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error
-	AddReleaseToOfficialCatalog(channelUsername string, releaseID int) error
+	AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error
 	DeleteStickiedPost(channelUsername string, stickiedPostID int) error
 	StickyPost(channelUsername string, postID int) error
 	AddPicture(channelUsername string, name string) error
@@ -109,7 +109,8 @@ func (service *service) GetChannel(username string) (*Channel, error) {
 func (service *service) UpdateChannel(username string, channel *Channel) error {
 	_, err := service.GetChannel(username)
 	if err != nil {
-		fmt.Errorf("channel can't be updated because %s", err.Error())
+		//fmt.Errorf("channel can't be updated because %s", err.Error())
+		return err
 	}
 	a, _ := service.GetChannel(channel.ChannelUsername)
 	if a != nil {
@@ -130,7 +131,8 @@ func (service *service) SearchChannels(pattern string, sortBy SortBy, sortOrder 
 func (service *service) DeleteChannel(username string) error {
 	_, err := service.GetChannel(username)
 	if err != nil {
-		fmt.Errorf("channel can't be deleted because %s", err.Error())
+		//fmt.Errorf("channel can't be deleted because %s", err.Error())
+		return err
 	}
 	return (*service.repo).DeleteChannel(username)
 }
@@ -139,7 +141,8 @@ func (service *service) DeleteChannel(username string) error {
 func (service *service) AddAdmin(channelUsername string, adminUsername string) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can'add admin because %s", err.Error())
+		//fmt.Errorf("channel can'add admin because %s", err.Error())
+		return err
 	}
 	return (*service.repo).AddAdmin(channelUsername, adminUsername)
 }
@@ -148,7 +151,8 @@ func (service *service) AddAdmin(channelUsername string, adminUsername string) e
 func (service *service) DeleteAdmin(channelUsername string, adminUsername string) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can'delete admin because %s", err.Error())
+		//fmt.Errorf("channel can'delete admin because %s", err.Error())
+		return err
 	}
 	return (*service.repo).DeleteAdmin(channelUsername, adminUsername)
 }
@@ -157,7 +161,8 @@ func (service *service) DeleteAdmin(channelUsername string, adminUsername string
 func (service *service) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can'delete release because %s", err.Error())
+		//fmt.Errorf("channel can'delete release because %s", err.Error())
+		return err
 	}
 	return (*service.repo).DeleteReleaseFromCatalog(channelUsername, ReleaseID)
 }
@@ -166,25 +171,28 @@ func (service *service) DeleteReleaseFromCatalog(channelUsername string, Release
 func (service *service) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can'delete release because %s", err.Error())
+		//fmt.Errorf("channel can'delete release because %s", err.Error())
+		return err
 	}
 	return (*service.repo).DeleteReleaseFromOfficialCatalog(channelUsername, ReleaseID)
 }
 
 // AddReleaseToOfficialCatalog adds the given release ReleaseID from the official catalog of channel of given username,ChannelUsername
-func (service *service) AddReleaseToOfficialCatalog(channelUsername string, ReleaseID int) error {
+func (service *service) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel add  release because %s", err.Error())
+		//fmt.Errorf("channel add  release because %s", err.Error())
+		return err
 	}
-	return (*service.repo).AddReleaseToOfficialCatalog(channelUsername, ReleaseID)
+	return (*service.repo).AddReleaseToOfficialCatalog(channelUsername, releaseID, postID)
 }
 
 // DeleteStickiedPost deletes the given post id from stickied post for the channel of given username,channelUsername.
 func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can'delete stickied post because %s", err.Error())
+		//fmt.Errorf("channel can'delete stickied post because %s", err.Error())
+		return err
 	}
 	return (*service.repo).DeleteStickiedPost(channelUsername, stickiedPostID)
 }
@@ -193,7 +201,8 @@ func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostI
 func (service *service) ChangeOwner(channelUsername string, ownerUsername string) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can't change owner because %s", err.Error())
+		//fmt.Errorf("channel can't change owner because %s", err.Error())
+		return err
 	}
 	return (*service.repo).ChangeOwner(channelUsername, ownerUsername)
 }
@@ -202,7 +211,8 @@ func (service *service) ChangeOwner(channelUsername string, ownerUsername string
 func (service *service) StickyPost(channelUsername string, postID int) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can't sticky post because %s", err.Error())
+		//fmt.Errorf("channel can't sticky post because %s", err.Error())
+		return err
 	}
 	return (*service.repo).StickyPost(channelUsername, postID)
 }
@@ -211,7 +221,8 @@ func (service *service) StickyPost(channelUsername string, postID int) error {
 func (service *service) AddPicture(channelUsername string, name string) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can't add picture because %s", err.Error())
+		//fmt.Errorf("channel can't add picture because %s", err.Error())
+		return err
 	}
 	return (*service.repo).AddPicture(channelUsername, name)
 }
@@ -220,7 +231,8 @@ func (service *service) AddPicture(channelUsername string, name string) error {
 func (service *service) RemovePicture(channelUsername string) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
-		fmt.Errorf("channel can't remove picture because %s", err.Error())
+		//fmt.Errorf("channel can't remove picture because %s", err.Error())
+		return err
 	}
 	return (*service.repo).RemovePicture(channelUsername)
 }

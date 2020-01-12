@@ -183,8 +183,8 @@ func getUsers(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		pattern := ""
 		limit := 25
 		offset := 0
-		var sortBy user.SortBy
-		var sortOrder user.SortOrder
+		sortBy := user.SortByCreationTime
+		sortOrder := user.SortDescending
 
 		{ // this block reads the query strings if any
 			pattern = r.URL.Query().Get("pattern")
@@ -224,7 +224,7 @@ func getUsers(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			case "last-name":
 				sortBy = user.SortByLastName
 			default:
-				sortBy = user.SortCreationTime
+				sortBy = user.SortByCreationTime
 				sortOrder = user.SortDescending
 			}
 			if len(sortSplit) > 1 {

@@ -64,10 +64,28 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 									        )
 									ORDER BY %s %s NULLS LAST
 									LIMIT $1 OFFSET $2`, by, order)
+		rows, err = repo.db.Query(query, limit, offset)
 	} else {
-		// TODO actual search queries
+		query = fmt.Sprintf(`
+				SELECT id, owner_channel, type, creation_time
+				FROM (
+				      (SELECT ts_rank(vector, query, 32) as rank, *
+				       FROM (
+				             (select release_id as id, vector, query
+				              from release_tsvs,
+				                   websearch_to_tsquery('simple', $1) query
+				              where vector @@ query
+				             ) as rti
+				                NATURAL JOIN releases
+				           )) as "r*"
+				         NATURAL JOIN
+				     (SELECT *
+				      FROM channel_official_catalog) as "coc*"
+				         )
+				ORDER BY rank DESC, %s %s NULLS LAST
+				LIMIT $2 OFFSET $3`, by, order)
+		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
-	rows, err = repo.db.Query(query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("querying for releases failed because of: %v", err)
 	}

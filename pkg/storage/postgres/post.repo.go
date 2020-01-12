@@ -260,7 +260,7 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 	var rows *sql.Rows
 
 	rows, err = repo.db.Query(fmt.Sprintf(`
-			SELECT id,COALESCE(posted_by, ''), COALESCE(channel_from, ''), COALESCE(title, ''), COALESCE(description, ''),creation_time
+			SELECT id, 0.1, COALESCE(posted_by, ''), COALESCE(channel_from, ''), COALESCE(title, ''), COALESCE(description, ''),creation_time
 			FROM "issue#1".posts
 			ORDER BY %s %s NULLS LAST
 			LIMIT $1 OFFSET $2`, by, order), limit, offset)
@@ -353,7 +353,6 @@ func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star,
 	}
 	return repo.GetPostStar(id, star.Username)
 }
-
 // func checkErr(errs error) {
 // 	if pgErr, isPGErr := errs.(pq.Error); !isPGErr {
 // 		fmt.Printf("prin\n%v", pgErr)

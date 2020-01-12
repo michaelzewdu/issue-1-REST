@@ -171,7 +171,7 @@ func attachChannelRoutesToRouters(mainRouter, secureRouter *mux.Router, setup *S
 	mainRouter.HandleFunc("/channels/{channelUsername}/official", getOfficialCatalog(setup)).Methods("GET")
 	secureRouter.HandleFunc("/channels/{channelUsername}/catalogs/{catalogID}", putReleaseInCatalog(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/channels/{channelUsername}/catalogs}", postReleaseInCatalog(setup)).Methods("POST")
-	secureRouter.HandleFunc("/channels/{channelUsername}/official/{catalogID}", putReleaseInOfficialCatalog(setup)).Methods("PUT")
+	//secureRouter.HandleFunc("/channels/{channelUsername}/official/{catalogID}", putReleaseInOfficialCatalog(setup)).Methods("PUT")
 	mainRouter.HandleFunc("/channels/{channelUsername}/Posts/stickiedPosts", getStickiedPosts(setup)).Methods("GET")
 	secureRouter.HandleFunc("/channels/{channelUsername}/Posts/{postID}", stickyPost(setup)).Methods("PUT")
 	secureRouter.HandleFunc("/channels/{channelUsername}/Posts/stickiedPosts/{stickiedPostID}", deleteStickiedPost(setup)).Methods("DELETE")

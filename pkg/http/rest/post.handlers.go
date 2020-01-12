@@ -434,8 +434,8 @@ func getPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		pattern := ""
 		limit := 25
 		offset := 0
-		sortBy:=post.SortByPoster
-		sortOrder:=post.SortDescending
+		var sortBy post.SortBy
+		var sortOrder post.SortOrder
 
 		{ // this block reads the query strings if any
 			pattern = r.URL.Query().Get("pattern")

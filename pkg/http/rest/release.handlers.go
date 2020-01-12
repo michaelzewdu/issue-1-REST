@@ -199,8 +199,8 @@ func getReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		pattern := ""
 		limit := 25
 		offset := 0
-		var sortBy release.SortBy
-		var sortOrder release.SortOrder
+		sortBy := release.SortCreationTime
+		sortOrder := release.SortDescending
 
 		{ // this block reads the query strings if any
 			pattern = r.URL.Query().Get("pattern")
