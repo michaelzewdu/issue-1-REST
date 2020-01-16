@@ -11,6 +11,7 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/post"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
+	"github.com/slim-crown/issue-1-REST/pkg/services/search"
 	"log"
 	"net/http"
 	"os"
@@ -139,6 +140,12 @@ func main() {
 		cacheRepos["Comment"] = &commentCacheRepo
 		setup.CommentService = comment.NewService(&commentCacheRepo)
 		services["Comment"] = &setup.CommentService
+	}
+	{
+		var searchDBRepo = postgres.NewSearchRepository(db, &dbRepos)
+		dbRepos["Search"] = &searchDBRepo
+		setup.SearchService = search.NewService(&searchDBRepo)
+		services["Search"] = &setup.CommentService
 	}
 
 	setup.ImageServingRoute = "/images/"

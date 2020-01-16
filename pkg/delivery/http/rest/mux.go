@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/slim-crown/issue-1-REST/pkg/services/search"
 	"io"
 	"io/ioutil"
 	"log"
@@ -45,6 +46,7 @@ type Dependencies struct {
 	ReleaseService  release.Service
 	PostService     post.Service
 	CommentService  comment.Service
+	SearchService   search.Service
 	jwtBackend      *JWTAuthenticationBackend
 	Logger          *log.Logger
 }
@@ -78,6 +80,8 @@ func NewMux(s *Setup) *mux.Router {
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
 	attachPostRoutesToRouters(mainRouter, secureRouter, s)
+
+	mainRouter.HandleFunc("/search", getSearch(s)).Methods("GET")
 
 	return mainRouter
 }

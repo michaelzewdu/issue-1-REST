@@ -258,18 +258,45 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 	var posts = make([]*post.Post, 0)
 	var err error
 	var rows *sql.Rows
-
-	rows, err = repo.db.Query(fmt.Sprintf(`
-			SELECT id, 0.1, COALESCE(posted_by, ''), COALESCE(channel_from, ''), COALESCE(title, ''), COALESCE(description, ''),creation_time
-			FROM "issue#1".posts
-			ORDER BY %s %s NULLS LAST
-			LIMIT $1 OFFSET $2`, by, order), limit, offset)
-
+	var query string
+	if pattern == "" {
+		query = fmt.Sprintf(`
+      SELECT id, COALESCE(posted_by, ''), COALESCE(channel_from, ''), COALESCE(title, ''), COALESCE(description, ''),creation_time
+      FROM "issue#1".posts
+      ORDER BY %s %s NULLS LAST
+      LIMIT $1 OFFSET $2`, by, order)
+		rows, err = repo.db.Query(query, limit, offset)
+	} else {
+		query = `
+            SELECT id,
+             posted_by,
+             channel_from,
+             title,
+             COALESCE(description, ''),
+             creation_time
+      FROM (
+               SELECT ts_rank(vector, query) as rank, *
+               FROM (
+                        select post_id as id, vector, query
+                        from tsvs_posts,
+                             websearch_to_tsquery('english', $1) query
+                        where vector @@ query
+                    ) as rti
+                        NATURAL JOIN
+                    posts
+           ) as "r*"
+      ORDER BY rank DESC`
+		if by != "" {
+			query = fmt.Sprintf(`%s, %s %s NULLS LAST`, query, by, order)
+		}
+		query = fmt.Sprintf(`%s 
+        LIMIT $2 OFFSET $3`, query)
+		rows, err = repo.db.Query(query, pattern, limit, offset)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("querying for posts failed because of: %v", err)
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		p := post.Post{}
 		err := rows.Scan(&p.ID, &p.PostedByUsername, &p.OriginChannel, &p.Title, &p.Description, &p.CreationTime)
