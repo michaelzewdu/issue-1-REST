@@ -23,8 +23,10 @@ CREATE FUNCTION "issue#1".setup_user() RETURNS trigger
 BEGIN
     insert into channels(username, name)
     values (new.username, new.username || '''s channel');
+    insert into channel_admins (channel_username, username, is_owner)
+    values (new.username, new.username, true);
     insert into feeds(owner_username, sorting)
-    values  (new.username, 'hot');
+    values (new.username, 'hot');
     return new;
 END;
 $$;
@@ -200,7 +202,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE "issue#1".channel_admins (
     channel_username character varying(24) NOT NULL,
-    "user" character varying(24) NOT NULL,
+    username character varying(24) NOT NULL,
     is_owner boolean NOT NULL
 );
 
@@ -589,6 +591,7 @@ ALTER TABLE ONLY "issue#1".releases ALTER COLUMN id SET DEFAULT nextval('"issue#
 -- Data for Name: channel_admins; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
+INSERT INTO "issue#1".channel_admins VALUES ('Isis Cane', 'Isis Cane', true);
 
 
 --
@@ -615,6 +618,7 @@ INSERT INTO "issue#1".channel_official_catalog VALUES ('chromagnum', 6, 4);
 --
 
 INSERT INTO "issue#1".channels VALUES ('chromagnum', '2019-12-29 19:59:22.564274+03', 'THE FUTURE IS NOW', 'take it off');
+INSERT INTO "issue#1".channels VALUES ('Isis Cane', '2020-01-16 21:44:42.22749+03', 'Isis Cane''s channel', NULL);
 
 
 --
@@ -645,6 +649,7 @@ INSERT INTO "issue#1".feeds VALUES ('rembrandt', 'hot', 3);
 INSERT INTO "issue#1".feeds VALUES ('rembrandtian', 'top', 6);
 INSERT INTO "issue#1".feeds VALUES ('slimmy', 'top', 7);
 INSERT INTO "issue#1".feeds VALUES ('loveless', 'new', 5);
+INSERT INTO "issue#1".feeds VALUES ('Isis Cane', 'hot', 8);
 
 
 --
@@ -912,6 +917,7 @@ INSERT INTO "issue#1".user_bookmarks VALUES ('slimmy', 5, '2020-01-12 10:12:43.8
 INSERT INTO "issue#1".users VALUES ('yoftie3@gmail.com', 'rembrandt', '2019-12-28 22:52:07.479752+03', 'e20d91786b7a9317bb0c84c11af36f3f459adb1c386347aab05b68e9eac8dd287689ef1924dd80309c67d8656a9bf520cc4c8dea7fe0196d675437d21eb1da20', 'Y.', 'A.', 'Knowe');
 INSERT INTO "issue#1".users VALUES ('hot@hotter.hottest', 'rembrandtian', '2019-12-28 22:54:02.72085+03', 'afe6d7d32ac4fff5eba8f09debdaaf57f946bd12239409f0f4b161558c7988f17a7cc47bc099bf9afa0f951458609055acd0149855f0ac7b604ecbeb28a63f5d', 'death', NULL, NULL);
 INSERT INTO "issue#1".users VALUES ('yat@yayat.yat', 'slimmy', '2019-12-28 23:05:11.662742+03', '58df5e6ebc6c6a8b4760f514652d7baaa864cc1e7e656a5734a253ad3b16c4a69561a202f3ae79bab9cbadc6ed20224b90ad7d467a3bfb773964a80e27d03e97', 'Kebab', 'Bab', 'Bob');
+INSERT INTO "issue#1".users VALUES ('zion@magnifico.com', 'Isis Cane', '2020-01-16 21:44:42.22749+03', '0e5cbfc12ef5bf26041b1b2c953dc0f733a2717b642de99993e143753397b065b02ef65b6ada58b85376e7da2fd62772ada782489f48a69e27f5af3eb85e70f7', 'Devil', 'Laughter', 'Ramses');
 INSERT INTO "issue#1".users VALUES ('stars@destination.com', 'loveless', '2020-01-08 01:49:31.153913+03', '87bba9f7d30eb9f64bc2d77eace67147c370e7073d22cb5bedfc5ae8b5bd3ca60b1748e21df9626749c031208e9811e38c3204a7efdf8a867ebfb9b066325251', 'Jeff', 'k.', 'Shoes');
 
 
@@ -922,6 +928,7 @@ INSERT INTO "issue#1".users VALUES ('stars@destination.com', 'loveless', '2020-0
 INSERT INTO "issue#1".users_bio VALUES ('slimmy', 'get out');
 INSERT INTO "issue#1".users_bio VALUES ('rembrandt', 'posh gorrila');
 INSERT INTO "issue#1".users_bio VALUES ('loveless', 'i don&#39;t know what&#39;s real!');
+INSERT INTO "issue#1".users_bio VALUES ('Isis Cane', 'War on your nation and fire to your idols, you scum!');
 
 
 --
@@ -935,7 +942,7 @@ SELECT pg_catalog.setval('"issue#1".comments_id_seq', 8, true);
 -- Name: feeds_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
-SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 7, true);
+SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 8, true);
 
 
 --
@@ -957,7 +964,7 @@ SELECT pg_catalog.setval('"issue#1".title_id_seq', 55, true);
 --
 
 ALTER TABLE ONLY "issue#1".channel_admins
-    ADD CONSTRAINT channel_admins_pkey PRIMARY KEY (channel_username, "user");
+    ADD CONSTRAINT channel_admins_pkey PRIMARY KEY (channel_username, username);
 
 
 --
@@ -1233,7 +1240,7 @@ ALTER TABLE ONLY "issue#1".channel_admins
 --
 
 ALTER TABLE ONLY "issue#1".channel_admins
-    ADD CONSTRAINT channel_admins_user_username_fkey FOREIGN KEY ("user") REFERENCES "issue#1".users(username) ON UPDATE CASCADE ON DELETE CASCADE NOT VALID;
+    ADD CONSTRAINT channel_admins_user_username_fkey FOREIGN KEY (username) REFERENCES "issue#1".users(username) ON UPDATE CASCADE ON DELETE CASCADE NOT VALID;
 
 
 --
