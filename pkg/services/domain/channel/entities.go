@@ -8,12 +8,12 @@ type Channel struct {
 	ChannelUsername    string    `json:"channelUsername"`
 	Name               string    `json:"name,omitempty"`
 	Description        string    `json:"description,omitempty"`
-	PictureURL         string    `json:"pictureURL"`
+	PictureURL         string    `json:"pictureURL,omitempty"`
 	OwnerUsername      string    `json:"ownerUsername,omitempty"`
 	AdminUsernames     []string  `json:"adminUsernames,omitempty"`
-	PostIDs            []int     `json:"postIDs,omitempty"`
-	StickiedPostIDs    []int     `json:"stickiedPostIDs,omitempty "`
-	ReleaseIDs         []int     `json:"releaseIDs,omitempty"`
-	OfficialReleaseIDs []int     `json:"officialReleaseIDs,omitempty"`
+	PostIDs            []uint    `json:"postIDs,omitempty"`
+	StickiedPostIDs    []uint    `json:"stickiedPostIDs,omitempty "`
+	ReleaseIDs         []uint    `json:"releaseIDs,omitempty"`
+	OfficialReleaseIDs []uint    `json:"officialReleaseIDs,omitempty"`
 	CreationTime       time.Time `json:"creationTime,omitempty"`
 }

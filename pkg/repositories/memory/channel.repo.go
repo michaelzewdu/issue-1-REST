@@ -35,7 +35,7 @@ func (repo *ChannelRepository) cacheChannel(channelUsername string) error {
 
 // AddChannel takes in a channel.Channel struct and persists it.
 // Returns an error if the DB repository implementation returns an error.
-func (repo *ChannelRepository) AddChannel(channel *channel.Channel) error {
+func (repo *ChannelRepository) AddChannel(channel *channel.Channel) (*channel.Channel, error) {
 	return (*repo.secondaryRepo).AddChannel(channel)
 }
 
@@ -54,23 +54,23 @@ func (repo *ChannelRepository) GetChannel(channelUsername string) (*channel.Chan
 }
 
 // UpdateChannel updates a channel based on the passed channel.Channel struct.
-func (repo *ChannelRepository) UpdateChannel(channelUsername string, c *channel.Channel) error {
-	err := (*repo.secondaryRepo).UpdateChannel(channelUsername, c)
+func (repo *ChannelRepository) UpdateChannel(channelUsername string, c *channel.Channel) (*channel.Channel, error) {
+	c, err := (*repo.secondaryRepo).UpdateChannel(channelUsername, c)
 	if err == nil {
 		if c.ChannelUsername != "" {
 			err = repo.cacheChannel(c.ChannelUsername)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			delete(repo.cache, c.ChannelUsername)
 			err = repo.cacheChannel(channelUsername)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	return err
+	return c, err
 }
 
 // DeleteChannel deletes a channel based on the passed channelUsername.
@@ -135,7 +135,7 @@ func (repo *ChannelRepository) ChangeOwner(channelUsername string, ownerUsername
 }
 
 // AddReleaseToOfficialCatalog calls the DB repo AddReleaseToOfficialCatalog function.
-func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
+func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername string, releaseID uint, postID uint) error {
 	err := (*repo.secondaryRepo).AddReleaseToOfficialCatalog(channelUsername, releaseID, postID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
@@ -147,7 +147,7 @@ func (repo *ChannelRepository) AddReleaseToOfficialCatalog(channelUsername strin
 }
 
 // DeleteReleaseFromCatalog calls the DB repo DeleteReleaseFromCatalog function.
-func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
+func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, ReleaseID uint) error {
 	err := (*repo.secondaryRepo).DeleteReleaseFromCatalog(channelUsername, ReleaseID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
@@ -159,7 +159,7 @@ func (repo *ChannelRepository) DeleteReleaseFromCatalog(channelUsername string, 
 }
 
 // DeleteReleaseFromOfficialCatalog calls the DB repo DeleteReleaseFromOfficialCatalog function.
-func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
+func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID uint) error {
 	err := (*repo.secondaryRepo).DeleteReleaseFromOfficialCatalog(channelUsername, ReleaseID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
@@ -171,7 +171,7 @@ func (repo *ChannelRepository) DeleteReleaseFromOfficialCatalog(channelUsername 
 }
 
 // StickyPost calls the DB repo StickyPost function.
-func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) error {
+func (repo *ChannelRepository) StickyPost(channelUsername string, postID uint) error {
 	err := (*repo.secondaryRepo).StickyPost(channelUsername, postID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
@@ -183,7 +183,7 @@ func (repo *ChannelRepository) StickyPost(channelUsername string, postID int) er
 }
 
 // DeleteStickiedPost calls the DB repo DeleteStickiedPost function.
-func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
+func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, stickiedPostID uint) error {
 	err := (*repo.secondaryRepo).DeleteStickiedPost(channelUsername, stickiedPostID)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
@@ -195,15 +195,15 @@ func (repo *ChannelRepository) DeleteStickiedPost(channelUsername string, sticki
 }
 
 // AddPicture calls the same method on the wrapped repo with a lil caching in between.
-func (repo *ChannelRepository) AddPicture(channelUsername, name string) error {
-	err := (*repo.secondaryRepo).AddPicture(channelUsername, name)
+func (repo *ChannelRepository) AddPicture(channelUsername, name string) (string, error) {
+	a, err := (*repo.secondaryRepo).AddPicture(channelUsername, name)
 	if err == nil {
 		err = repo.cacheChannel(channelUsername)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return err
+	return a, err
 }
 
 // RemovePicture calls the same method on the wrapped repo with a lil caching in between.

@@ -5,37 +5,37 @@ package channel
 import "fmt"
 
 type Service interface {
-	AddChannel(channel *Channel) error
+	AddChannel(channel *Channel) (*Channel, error)
 	GetChannel(username string) (*Channel, error)
-	UpdateChannel(username string, channel *Channel) error
+	UpdateChannel(username string, channel *Channel) (*Channel, error)
 	SearchChannels(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*Channel, error)
 	DeleteChannel(username string) error
 	AddAdmin(channelUsername string, adminUsername string) error
 	DeleteAdmin(channelUsername string, adminUsername string) error
 	ChangeOwner(channelUsername string, ownerUsername string) error
-	DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error
-	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error
-	AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error
-	DeleteStickiedPost(channelUsername string, stickiedPostID int) error
-	StickyPost(channelUsername string, postID int) error
-	AddPicture(channelUsername string, name string) error
+	DeleteReleaseFromCatalog(channelUsername string, ReleaseID uint) error
+	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID uint) error
+	AddReleaseToOfficialCatalog(channelUsername string, releaseID uint, postID uint) error
+	DeleteStickiedPost(channelUsername string, stickiedPostID uint) error
+	StickyPost(channelUsername string, postID uint) error
+	AddPicture(channelUsername string, name string) (string, error)
 	RemovePicture(channelUsername string) error
 }
 type Repository interface {
-	AddChannel(channel *Channel) error
+	AddChannel(channel *Channel) (*Channel, error)
 	GetChannel(username string) (*Channel, error)
-	UpdateChannel(username string, channel *Channel) error
+	UpdateChannel(username string, channel *Channel) (*Channel, error)
 	SearchChannels(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*Channel, error)
 	DeleteChannel(username string) error
 	AddAdmin(channelUsername string, adminUsername string) error
 	DeleteAdmin(channelUsername string, adminUsername string) error
 	ChangeOwner(channelUsername string, ownerUsername string) error
-	DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error
-	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error
-	AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error
-	DeleteStickiedPost(channelUsername string, stickiedPostID int) error
-	StickyPost(channelUsername string, postID int) error
-	AddPicture(channelUsername string, name string) error
+	DeleteReleaseFromCatalog(channelUsername string, ReleaseID uint) error
+	DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID uint) error
+	AddReleaseToOfficialCatalog(channelUsername string, releaseID uint, postID uint) error
+	DeleteStickiedPost(channelUsername string, stickiedPostID uint) error
+	StickyPost(channelUsername string, postID uint) error
+	AddPicture(channelUsername string, name string) (string, error)
 	RemovePicture(channelUsername string) error
 }
 type SortOrder string
@@ -52,6 +52,9 @@ const (
 
 // ErrUserNameOccupied is returned when the channel username specified is occupied
 var ErrUserNameOccupied = fmt.Errorf("user name is occupied")
+
+// ErrAdminAlreadyExists is returned when the channel username specified already has specified user as admin
+var ErrAdminAlreadyExists = fmt.Errorf("user is already an admin")
 
 // ErrChannelNotFound is returned when the  channel username specified isn't recognized
 var ErrChannelNotFound = fmt.Errorf("channel not found  error")
@@ -83,19 +86,19 @@ type service struct {
 }
 
 // NewService returns a struct that implements the Service interface
-func NewService(repo *Repository, allServices *map[string]interface{}) *service {
+func NewService(repo *Repository, allServices *map[string]interface{}) Service {
 	s := &service{allServices: allServices, repo: repo}
 	return s
 }
 
 // AddChannel adds a channel
-func (service *service) AddChannel(channel *Channel) error {
+func (service *service) AddChannel(channel *Channel) (*Channel, error) {
 	if channel.Name == "" && channel.ChannelUsername == "" {
-		return ErrInvalidChannelData
+		return nil, ErrInvalidChannelData
 	}
 	a, _ := service.GetChannel(channel.ChannelUsername)
 	if a != nil {
-		return ErrUserNameOccupied
+		return nil, ErrUserNameOccupied
 	}
 	return (*service.repo).AddChannel(channel)
 }
@@ -106,15 +109,15 @@ func (service *service) GetChannel(username string) (*Channel, error) {
 }
 
 // UpdateChannel updates a channel according to the given username and channel
-func (service *service) UpdateChannel(username string, channel *Channel) error {
+func (service *service) UpdateChannel(username string, channel *Channel) (*Channel, error) {
 	_, err := service.GetChannel(username)
 	if err != nil {
 		//fmt.Errorf("channel can't be updated because %s", err.Error())
-		return err
+		return nil, err
 	}
 	a, _ := service.GetChannel(channel.ChannelUsername)
 	if a != nil {
-		return ErrUserNameOccupied
+		return nil, ErrUserNameOccupied
 	}
 	return (*service.repo).UpdateChannel(username, channel)
 }
@@ -158,7 +161,7 @@ func (service *service) DeleteAdmin(channelUsername string, adminUsername string
 }
 
 // DeleteReleaseFromOfficialCatalog deletes the given release ReleaseID from the catalog of channel of given username,ChannelUsername
-func (service *service) DeleteReleaseFromCatalog(channelUsername string, ReleaseID int) error {
+func (service *service) DeleteReleaseFromCatalog(channelUsername string, ReleaseID uint) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete release because %s", err.Error())
@@ -168,7 +171,7 @@ func (service *service) DeleteReleaseFromCatalog(channelUsername string, Release
 }
 
 // DeleteReleaseFromOfficialCatalog deletes the given release ReleaseID from the official catalog of channel of given username,ChannelUsername
-func (service *service) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID int) error {
+func (service *service) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID uint) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete release because %s", err.Error())
@@ -178,7 +181,7 @@ func (service *service) DeleteReleaseFromOfficialCatalog(channelUsername string,
 }
 
 // AddReleaseToOfficialCatalog adds the given release ReleaseID from the official catalog of channel of given username,ChannelUsername
-func (service *service) AddReleaseToOfficialCatalog(channelUsername string, releaseID int, postID int) error {
+func (service *service) AddReleaseToOfficialCatalog(channelUsername string, releaseID uint, postID uint) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel add  release because %s", err.Error())
@@ -188,7 +191,7 @@ func (service *service) AddReleaseToOfficialCatalog(channelUsername string, rele
 }
 
 // DeleteStickiedPost deletes the given post id from stickied post for the channel of given username,channelUsername.
-func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostID int) error {
+func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostID uint) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete stickied post because %s", err.Error())
@@ -208,7 +211,7 @@ func (service *service) ChangeOwner(channelUsername string, ownerUsername string
 }
 
 // StickyPost sticks the given postID for the channel of the given username on top of the post view of channel.
-func (service *service) StickyPost(channelUsername string, postID int) error {
+func (service *service) StickyPost(channelUsername string, postID uint) error {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can't sticky post because %s", err.Error())
@@ -218,11 +221,11 @@ func (service *service) StickyPost(channelUsername string, postID int) error {
 }
 
 // AddPicture adds the given image name as the picture for the given username.
-func (service *service) AddPicture(channelUsername string, name string) error {
+func (service *service) AddPicture(channelUsername string, name string) (string, error) {
 	_, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can't add picture because %s", err.Error())
-		return err
+		return "", err
 	}
 	return (*service.repo).AddPicture(channelUsername, name)
 }
