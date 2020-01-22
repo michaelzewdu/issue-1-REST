@@ -43,7 +43,7 @@ var ErrPostNotFound = fmt.Errorf("post not found")
 // ErrUserNotFound is returned when the the username specified isn't recognized
 var ErrUserNotFound = fmt.Errorf("user not found")
 
-// ErrSomeUserDataNotPersisted is returned when the the username specified isn't recognized
+// ErrSomeCommentDataNotPersisted is returned when the the username specified isn't recognized
 var ErrSomeCommentDataNotPersisted = fmt.Errorf("was not able to persist some user data")
 
 // ErrCommentNotFound is returned when the requested comment is not found

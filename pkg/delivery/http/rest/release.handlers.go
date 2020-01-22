@@ -3,12 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 
 	"github.com/gorilla/mux"
 )
@@ -119,7 +120,9 @@ func postRelease(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 					case release.ErrSomeReleaseDataNotPersisted:
 						fallthrough
 					default:
-						_ = d.ReleaseService.DeleteRelease(newRelease.ID)
+						if newRelease != nil && newRelease.ID != 0 {
+							_ = d.ReleaseService.DeleteRelease(newRelease.ID)
+						}
 						d.Logger.Printf("adding of release failed because: %v", err)
 						response.Status = "error"
 						response.Message = "server error when adding release"

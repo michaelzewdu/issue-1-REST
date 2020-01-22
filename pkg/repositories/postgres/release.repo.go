@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 )
 
@@ -43,7 +42,10 @@ func (repo releaseRepository) GetRelease(id int) (*release.Release, error) {
 				WHERE id = $1`
 	err = repo.db.QueryRow(query, id).Scan(&typeString, &r.OwnerChannel, &r.Content, &r.CreationTime)
 	if err != nil {
-		return nil, release.ErrReleaseNotFound
+		if err == sql.ErrNoRows {
+			return nil, release.ErrReleaseNotFound
+		}
+		return nil, fmt.Errorf("unable to get release from db becaues: %v", err)
 	}
 	r.Type = release.Type(typeString)
 	content, err := repo.getContent(id, r.Type)

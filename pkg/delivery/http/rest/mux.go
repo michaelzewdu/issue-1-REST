@@ -3,7 +3,6 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/slim-crown/issue-1-REST/pkg/services/search"
 	"io"
 	"io/ioutil"
 	"log"
@@ -11,6 +10,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
+	"github.com/slim-crown/issue-1-REST/pkg/services/search"
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
@@ -30,6 +32,7 @@ type Logger interface {
 	Log(format string, a ...interface{})
 }
 */
+
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
@@ -47,7 +50,7 @@ type Dependencies struct {
 	PostService     post.Service
 	CommentService  comment.Service
 	SearchService   search.Service
-	jwtBackend      *JWTAuthenticationBackend
+	AuthService     auth.Service
 	Logger          *log.Logger
 }
 
@@ -68,7 +71,6 @@ func NewMux(s *Setup) *mux.Router {
 		http.StripPrefix(s.ImageServingRoute, http.FileServer(http.Dir(s.ImageStoragePath))))
 
 	// setup security
-	s.jwtBackend = NewJWTAuthenticationBackend(s)
 	mainRouter.Use(ParseAuthTokenMiddleware(s))
 	secureRouter.Use(CheckForAuthMiddleware(s))
 

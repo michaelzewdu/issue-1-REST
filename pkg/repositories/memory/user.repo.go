@@ -94,11 +94,6 @@ func (repo *userRepository) SearchUser(pattern, sortBy, sortOrder string, limit,
 	return result, err
 }
 
-// PassHashIsCorrect calls the DB repo PassHashIsCorrect function. checks the given pass hash against the pass hash found in the database for the username.
-func (repo *userRepository) PassHashIsCorrect(username, passHash string) bool {
-	return (*repo.secondaryRepo).PassHashIsCorrect(username, passHash)
-}
-
 // BookmarkPost calls the DB repo BookmarkPost function.
 func (repo *userRepository) BookmarkPost(username string, postID int) error {
 	err := (*repo.secondaryRepo).BookmarkPost(username, postID)
@@ -132,6 +127,12 @@ func (repo *userRepository) UsernameOccupied(username string) (bool, error) {
 func (repo *userRepository) EmailOccupied(email string) (bool, error) {
 	return (*repo.secondaryRepo).EmailOccupied(email)
 }
+
+// Authenticate calls the DB repo Authenticate function.
+func (repo *userRepository) Authenticate(u *user.User) (bool, error) {
+	return (*repo.secondaryRepo).Authenticate(u)
+}
+
 
 // AddPicture calls the same method on the wrapped repo with a lil caching in between.
 func (repo *userRepository) AddPicture(username, name string) error {

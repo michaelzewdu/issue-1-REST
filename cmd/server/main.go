@@ -1,10 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"regexp"
+	"time"
+
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/slim-crown/issue-1-REST/pkg/delivery/http/rest"
+	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/comment"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/feed"
@@ -12,11 +20,6 @@ import (
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
 	"github.com/slim-crown/issue-1-REST/pkg/services/search"
-	"log"
-	"net/http"
-	"os"
-	"regexp"
-	"time"
 
 	"github.com/slim-crown/issue-1-REST/pkg/repositories/memory"
 	"github.com/slim-crown/issue-1-REST/pkg/repositories/postgres"
@@ -76,17 +79,15 @@ func main() {
 		dataSourceName := fmt.Sprintf(
 			`host=%s port=%s dbname='%s' user='%s' password='%s' sslmode=disable`,
 			host, port, dbname, role, password)
-		db, err = sql.Open(
-			"postgres", dataSourceName)
+
+		db, err = sql.Open("postgres", dataSourceName)
 		if err != nil {
-			setup.Logger.Printf("database connection failed because: %s", err.Error())
-			return
+			setup.Logger.Fatalf("database connection failed because: %s", err.Error())
 		}
 		defer db.Close()
 
 		if err = db.Ping(); err != nil {
-			setup.Logger.Printf("database ping failed because: %s", err.Error())
-			return
+			setup.Logger.Fatalf("database ping failed because: %s", err.Error())
 		}
 	}
 
@@ -136,7 +137,7 @@ func main() {
 	{
 		var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
 		dbRepos["Comment"] = &commentDBRepo
-		var commentCacheRepo = memory.NewRepository(&commentDBRepo)
+		var commentCacheRepo = memory.NewCommentRepository(&commentDBRepo)
 		cacheRepos["Comment"] = &commentCacheRepo
 		setup.CommentService = comment.NewService(&commentCacheRepo)
 		services["Comment"] = &setup.CommentService
@@ -145,7 +146,7 @@ func main() {
 		var searchDBRepo = postgres.NewSearchRepository(db, &dbRepos)
 		dbRepos["Search"] = &searchDBRepo
 		setup.SearchService = search.NewService(&searchDBRepo)
-		services["Search"] = &setup.CommentService
+		services["Search"] = &setup.SearchService
 	}
 
 	setup.ImageServingRoute = "/images/"
@@ -163,10 +164,34 @@ func main() {
 	setup.TokenAccessLifetime = 15 * time.Minute
 	setup.TokenRefreshLifetime = 7 * 24 * time.Hour
 
+	{
+		var authDBRepo = postgres.NewAuthRepository(db, &dbRepos)
+		dbRepos["Auth"] = &authDBRepo
+		var authCacheRepo = memory.NewAuthRepository(&authDBRepo)
+		cacheRepos["Auth"] = &authCacheRepo
+		setup.AuthService = auth.NewAuthService(&authCacheRepo,
+			setup.TokenAccessLifetime,
+			setup.TokenRefreshLifetime,
+			setup.TokenSigningSecret)
+		services["Auth"] = &setup.AuthService
+	}
+
 	mux := rest.NewMux(&setup)
 
 	setup.Logger.Printf("server running...")
 
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			switch scanner.Text() {
+			case "k":
+				log.Fatalln("shutting server down...")
+			default:
+				fmt.Println("unknown command")
+			}
+		}
+	}()
+	// setup.HostAddress = "https://localhost" + ":" + setup.Port
 	//log.Fatal(http.ListenAndServeTLS(":"+setup.Port, "cmd/server/cert.pem", "cmd/server/key.pem",mux))
 
 	log.Fatal(http.ListenAndServe(":"+setup.Port, mux))

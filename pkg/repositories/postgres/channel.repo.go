@@ -264,7 +264,7 @@ func (repo *channelRepository) GetOwner(username string) (string, error) {
 	var owner string
 	var Admin string
 	var isOwner bool
-	rows, err := repo.db.Query(`SELECT "user",is_owner
+	rows, err := repo.db.Query(`SELECT username,is_owner
                 FROM "issue#1".channel_admins
                 WHERE channel_username = $1`, username)
 	if err != nil {
@@ -381,7 +381,7 @@ func (repo *channelRepository) SearchChannels(pattern string, sortBy channel.Sor
 func (repo *channelRepository) AddAdmin(channelUsername string, adminUsername string) error {
 	var err error
 	owner := false
-	_, err = repo.db.Exec(`INSERT INTO "issue#1".channel_admins (channel_username,"user",is_owner)
+	_, err = repo.db.Exec(`INSERT INTO "issue#1".channel_admins (channel_username,username,is_owner)
 							VALUES ($1, $2,$3)`, channelUsername, adminUsername, owner)
 	if err != nil {
 		return fmt.Errorf("insertion of user failed because of: %s", err.Error())
@@ -392,7 +392,7 @@ func (repo *channelRepository) AddAdmin(channelUsername string, adminUsername st
 // DeleteAdmin deletes role of a User adminUsername of the channel channelUsername as an admin
 func (repo *channelRepository) DeleteAdmin(channelUsername string, adminUsername string) error {
 	_, err := repo.db.Exec(`DELETE FROM "issue#1".channel_admins
-							WHERE channel_username = $1 AND "user"= $2`, channelUsername, adminUsername)
+							WHERE channel_username = $1 AND username= $2`, channelUsername, adminUsername)
 	if err != nil {
 		return fmt.Errorf("deletion of tuple from channel_admins because of: %s", err.Error())
 	}
@@ -403,7 +403,7 @@ func (repo *channelRepository) DeleteAdmin(channelUsername string, adminUsername
 func (repo *channelRepository) GetAdmins(channelUsername string) ([]string, error) {
 	var AdminList []string
 	var Admin string
-	rows, err := repo.db.Query(`SELECT "user"
+	rows, err := repo.db.Query(`SELECT username
                 FROM "issue#1".channel_admins
                 WHERE channel_username = $1`, channelUsername)
 	if err != nil {
@@ -431,7 +431,7 @@ func (repo *channelRepository) ChangeOwner(channelUsername string, ownerUsername
 	var err error
 	var owner bool = true
 	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins
-								  SET is_owner = $3 WHERE channel_username =$1 AND "user"=$2`, channelUsername, ownerUsername, owner)
+								  SET is_owner = $3 WHERE channel_username =$1 AND username=$2`, channelUsername, ownerUsername, owner)
 	if err != nil {
 		return fmt.Errorf("changing of owner failed because of: %s", err.Error())
 	}

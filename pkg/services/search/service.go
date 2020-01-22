@@ -4,12 +4,12 @@ package search
 
 import "fmt"
 
-// Service specifies a method to service Comment entities.
+// Service specifies a method to provide searching functionality.
 type Service interface {
 	SearchComments(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*Comment, error)
 }
 
-// Repository specifies a repo interface to serve the Comment Service interface
+// Repository specifies a repo interface to serve the search.Service interface
 type Repository interface {
 	SearchComments(pattern string, sortBy string, sortOrder string, limit, offset int) ([]*Comment, error)
 }
@@ -37,6 +37,7 @@ func NewService(repo *Repository) Service {
 	return &service{repo: repo}
 }
 
+// SearchComments returns a list of comments based on the given pattern and pagination parameters.
 func (s service) SearchComments(pattern string, sortBy SortBy, sortOrder SortOrder, limit, offset int) ([]*Comment, error) {
 	if limit < 0 || offset < 0 {
 		return nil, fmt.Errorf("invalid pagination")

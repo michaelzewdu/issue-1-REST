@@ -3,11 +3,14 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
-	"net/http"
-	"time"
 )
 
 // ParseAuthTokenMiddleware checks  if the attached request has a valid
@@ -28,8 +31,9 @@ func ParseAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 			// requests and other cases that have nothing to do with parsing.
 			if token != nil {
 				claimMap, _ := token.Claims.(jwt.MapClaims)
+				isInBlacklist, _ := s.AuthService.IsInBlacklist(r.Header.Get("Authorization"))
 				switch {
-				case s.jwtBackend.IsInBlacklist(r.Header.Get("Authorization")):
+				case isInBlacklist:
 					// has logged out token
 					break
 				case token.Valid:
@@ -89,7 +93,7 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		requestUser := new(user.User)
+		requestUser := new(auth.User)
 		err := json.NewDecoder(r.Body).Decode(&requestUser)
 		if err != nil {
 			response.Data = jSendFailData{
@@ -99,11 +103,11 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Printf("bad auth request")
 			statusCode = http.StatusBadRequest
 		} else {
-			success, err := s.jwtBackend.Authenticate(requestUser)
+			success, err := s.AuthService.Authenticate(requestUser)
 			switch err {
 			case nil:
 				if success {
-					tokenString, err := s.jwtBackend.GenerateToken(requestUser.Username)
+					tokenString, err := s.AuthService.GenerateToken(requestUser.Username)
 					if err != nil {
 						s.Logger.Printf("token generation failed because: %v", err)
 						response.Status = "error"
@@ -162,7 +166,7 @@ func getTokenAuthRefresh(s *Setup) func(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 		}
-		tokenString, err := s.jwtBackend.GenerateToken(r.Header.Get("authorized_username"))
+		tokenString, err := s.AuthService.GenerateToken(r.Header.Get("authorized_username"))
 		if err != nil {
 			s.Logger.Printf("token generation failed because: %v", err)
 			response.Status = "error"
@@ -205,5 +209,5 @@ func getLogout(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 // invalidateAttachedToken is a helper function.
 func invalidateAttachedToken(req *http.Request, s *Setup) error {
 	tokenString := req.Header.Get("Authorization")
-	return s.jwtBackend.AddToBlacklist(tokenString)
+	return s.AuthService.AddToBlacklist(tokenString)
 }

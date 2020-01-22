@@ -59,7 +59,10 @@ func (repo *feedRepository) GetFeed(username string) (*feed.Feed, error) {
 	 								FROM feeds
 	 								WHERE owner_username = $1`, username).Scan(&f.ID, &sorting)
 	if err != nil {
-		return nil, feed.ErrFeedNotFound //fmt.Errorf("scanning Row from users failed because of: %s", err.Error())
+		if err == sql.ErrNoRows {
+			return nil, feed.ErrFeedNotFound
+		}
+		return nil, fmt.Errorf("unable to get feed from db becaues: %v", err)
 	}
 	switch sorting {
 	case "hot":
