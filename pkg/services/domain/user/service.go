@@ -113,8 +113,7 @@ func (service *service) GetUser(username string) (*User, error) {
 
 // UpdateUser updates the user of the given username according to the User struct given
 func (service *service) UpdateUser(u *User, username string) (*User, error) {
-	if _, err := service.GetUser(username);
-		err == ErrUserNotFound {
+	if _, err := service.GetUser(username); err == ErrUserNotFound {
 		if u.Username == "" || u.Username == username {
 			u.Username = username
 			return service.AddUser(u)

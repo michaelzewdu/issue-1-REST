@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/url"
 	"os"
 
@@ -17,9 +18,12 @@ import (
 )
 
 func sanitizeChannel(c *channel.Channel, s *Setup) {
-	c.ChannelUsername = s.StrictSanitizer.Sanitize(c.ChannelUsername)
-	c.Name = s.StrictSanitizer.Sanitize(c.Name)
-	c.Description = s.StrictSanitizer.Sanitize(c.Description)
+	// c.ChannelUsername = s.StrictSanitizer.Sanitize(c.ChannelUsername)
+	// c.Name = s.StrictSanitizer.Sanitize(c.Name)
+	// c.Description = s.StrictSanitizer.Sanitize(c.Description)
+	c.ChannelUsername = html.EscapeString(c.ChannelUsername)
+	c.Name = html.EscapeString(c.Name)
+	c.Description = html.EscapeString(c.Description)
 }
 
 // getChannel returns a handler for GET /channels/{channelUsername} requests
@@ -60,7 +64,6 @@ func getChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				ErrorReason:  "channelUsername",
 				ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelUsername),
 			}
-
 			statusCode = http.StatusNotFound
 		default:
 			s.Logger.Printf("Fetching of channel failed because %s", err)
@@ -1032,7 +1035,7 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// putRelease returns a handler for PUT /releases/{id} requests
+// putReleaseInCatalog returns a handler for PUT /releases/{id} requests
 func putReleaseInCatalog(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
@@ -1227,12 +1230,12 @@ func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request)
 						}
 					}
 					if !found {
-						s.Logger.Printf("unauthorized delete release of channel attempt")
+						s.Logger.Printf("unauthorized post release of channel attempt")
 						w.WriteHeader(http.StatusUnauthorized)
 						return
 					}
 				} else {
-					s.Logger.Printf("put attempt on channel on non existent channel %s", newRelease.OwnerChannel)
+					s.Logger.Printf("post attempt on channel on non existent channel %s", newRelease.OwnerChannel)
 					response.Data = jSendFailData{
 						ErrorReason:  "channelUsername",
 						ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", newRelease.OwnerChannel),
@@ -1318,6 +1321,7 @@ func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// TODO
 /*//// postReleaseInOfficialCatalog returns a handler for POST /channels/{channelUsername}/official
 func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {

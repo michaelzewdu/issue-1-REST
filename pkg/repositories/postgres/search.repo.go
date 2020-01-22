@@ -46,7 +46,6 @@ func (repo searchRepository) SearchComments(pattern string, by string, order str
 	defer rows.Close()
 	for rows.Next() {
 		c := new(search.Comment)
-		// TODO check if type casting works
 		err := rows.Scan(&c.ID, &c.Commenter, &c.Content, &c.ReplyTo, &c.CreationTime)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from row failed because: %v", err)

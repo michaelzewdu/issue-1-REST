@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 )
 
@@ -22,25 +23,10 @@ func (repo releaseRepository) GetRelease(id int) (*release.Release, error) {
 	var r = new(release.Release)
 
 	var typeString string
-	query := `SELECT type, owner_channel, content, creation_time
+	query := `SELECT type, owner_channel, creation_time
 				FROM releases
-				         LEFT JOIN
-				     (
-				         select release_id, content
-				         from (
-				                  (
-				                      select release_id, image_name as content
-				                      from releases_image_based
-				                  )
-				                  union
-				                  (
-				                      select *
-				                      from releases_text_based
-				                  )
-				              ) as "rictb*"
-				     ) as cs on releases.id = cs.release_id
 				WHERE id = $1`
-	err = repo.db.QueryRow(query, id).Scan(&typeString, &r.OwnerChannel, &r.Content, &r.CreationTime)
+	err = repo.db.QueryRow(query, id).Scan(&typeString, &r.OwnerChannel, &r.CreationTime)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, release.ErrReleaseNotFound
@@ -81,11 +67,11 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 				                  SELECT release_id, content
 				                  FROM (
 				                           SELECT release_id, image_name as content
-				                           FROM image_based
+				                           FROM releases_image_based
 				                       ) AS ric
 				                  UNION
 				                  SELECT *
-				                  FROM text_based
+				                  FROM releases_text_based
 				              ) AS cs
 				              ON releases.id = cs.release_id
 				     ) AS "r*"
@@ -145,7 +131,6 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 	defer rows.Close()
 	for rows.Next() {
 		r := new(release.Release)
-		// TODO check if type casting works
 		err := rows.Scan(&r.ID, &r.OwnerChannel, &r.Content, &r.Type, &r.CreationTime)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
@@ -266,7 +251,7 @@ func (repo releaseRepository) execUpdateStatementOnColumnIntoReleases(column, va
 }
 
 func (repo releaseRepository) execUpdateStatementOnColumnIntoMetadata(column string, value interface{}, id int) error {
-	query := fmt.Sprintf(`INSERT INTO metadata (release_id, %s)
+	query := fmt.Sprintf(`INSERT INTO release_metadata (release_id, %s)
 								VALUES ($1, $2)
 								ON CONFLICT(release_id) DO UPDATE
 								SET %s = $2`, column, column)
@@ -280,12 +265,12 @@ func (repo releaseRepository) execUpdateStatementOnColumnIntoMetadata(column str
 func (repo releaseRepository) execUpdateStatementForContent(t release.Type, value string, id int) error {
 	var query string
 	if t == release.Image {
-		query = `INSERT INTO image_based (release_id, image_name)
+		query = `INSERT INTO releases_image_based (release_id, image_name)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET image_name = $2`
 	} else {
-		query = `INSERT INTO text_based (release_id, content)
+		query = `INSERT INTO releases_text_based (release_id, content)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET content = $2`
@@ -301,11 +286,11 @@ func (repo releaseRepository) getContent(id int, t release.Type) (string, error)
 	var content, query string
 	if t == release.Image {
 		query = `SELECT COALESCE(image_name, '') 
-				FROM image_based 
+				FROM releases_image_based 
 				WHERE release_id = $1`
 	} else {
 		query = `SELECT COALESCE(content, '') 
-				FROM text_based 
+				FROM releases_text_based 
 				WHERE release_id = $1`
 	}
 	err := repo.db.QueryRow(query, id).Scan(&content)

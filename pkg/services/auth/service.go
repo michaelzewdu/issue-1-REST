@@ -15,12 +15,15 @@ type Service interface {
 	IsInBlacklist(token string) (bool, error)
 }
 
-// Repository defines an interface that provides persistance funcitonality for the search service.
+// Repository defines an interface that provides persistence functionality for the search service.
 type Repository interface {
 	Authenticate(user *User) (bool, error)
 	AddToBlacklist(tokenString string) error
 	IsInBlacklist(token string) (bool, error)
 }
+
+// ErrUserNotFound is returned when the the username specified isn't recognized
+var ErrUserNotFound = fmt.Errorf("user not found")
 
 // jWTAuthenticationBackend provides methods for implementation of a JWT based authentication
 type jWTAuthenticationBackend struct {

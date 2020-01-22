@@ -1,6 +1,5 @@
 
 --
--- TOC entry 2 (class 3079 OID 98833)
 -- Name: citext; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -8,8 +7,6 @@ CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA "issue#1";
 
 
 --
--- TOC entry 3145 (class 0 OID 0)
--- Dependencies: 2
 -- Name: EXTENSION citext; Type: COMMENT; Schema: -; Owner: 
 --
 
@@ -17,7 +14,6 @@ COMMENT ON EXTENSION citext IS 'data type for case-insensitive character strings
 
 
 --
--- TOC entry 288 (class 1255 OID 123309)
 -- Name: setup_user(); Type: FUNCTION; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -39,7 +35,6 @@ $$;
 ALTER FUNCTION "issue#1".setup_user() OWNER TO "issue#1_dev";
 
 --
--- TOC entry 289 (class 1255 OID 123420)
 -- Name: tsv_comment_trigger(); Type: FUNCTION; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -66,7 +61,6 @@ $$;
 ALTER FUNCTION "issue#1".tsv_comment_trigger() OWNER TO "issue#1_dev";
 
 --
--- TOC entry 286 (class 1255 OID 123330)
 -- Name: tsv_on_metadata_update_trigger(); Type: FUNCTION; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -129,7 +123,6 @@ $$;
 ALTER FUNCTION "issue#1".tsv_on_metadata_update_trigger() OWNER TO "issue#1_dev";
 
 --
--- TOC entry 287 (class 1255 OID 123357)
 -- Name: tsv_post_trigger(); Type: FUNCTION; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -160,7 +153,6 @@ $$;
 ALTER FUNCTION "issue#1".tsv_post_trigger() OWNER TO "issue#1_dev";
 
 --
--- TOC entry 290 (class 1255 OID 123338)
 -- Name: tsv_text_based_update_trigger(); Type: FUNCTION; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -205,7 +197,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- TOC entry 203 (class 1259 OID 98938)
 -- Name: channel_admins; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -219,7 +210,6 @@ CREATE TABLE "issue#1".channel_admins (
 ALTER TABLE "issue#1".channel_admins OWNER TO "issue#1_dev";
 
 --
--- TOC entry 204 (class 1259 OID 98941)
 -- Name: channel_official_catalog; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -233,7 +223,6 @@ CREATE TABLE "issue#1".channel_official_catalog (
 ALTER TABLE "issue#1".channel_official_catalog OWNER TO "issue#1_dev";
 
 --
--- TOC entry 224 (class 1259 OID 115130)
 -- Name: channel_pictures; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -246,7 +235,6 @@ CREATE TABLE "issue#1".channel_pictures (
 ALTER TABLE "issue#1".channel_pictures OWNER TO "issue#1_dev";
 
 --
--- TOC entry 205 (class 1259 OID 98944)
 -- Name: channel_stickies; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -258,7 +246,6 @@ CREATE TABLE "issue#1".channel_stickies (
 ALTER TABLE "issue#1".channel_stickies OWNER TO "issue#1_dev";
 
 --
--- TOC entry 206 (class 1259 OID 98947)
 -- Name: channels; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -273,7 +260,6 @@ CREATE TABLE "issue#1".channels (
 ALTER TABLE "issue#1".channels OWNER TO "issue#1_dev";
 
 --
--- TOC entry 207 (class 1259 OID 98954)
 -- Name: comments; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -290,7 +276,6 @@ CREATE TABLE "issue#1".comments (
 ALTER TABLE "issue#1".comments OWNER TO "issue#1_dev";
 
 --
--- TOC entry 225 (class 1259 OID 123311)
 -- Name: comments_id_seq; Type: SEQUENCE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -305,7 +290,6 @@ ALTER TABLE "issue#1".comments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 
 
 --
--- TOC entry 208 (class 1259 OID 98961)
 -- Name: feed_subscriptions; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -319,7 +303,6 @@ CREATE TABLE "issue#1".feed_subscriptions (
 ALTER TABLE "issue#1".feed_subscriptions OWNER TO "issue#1_dev";
 
 --
--- TOC entry 209 (class 1259 OID 98965)
 -- Name: feeds; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -333,7 +316,6 @@ CREATE TABLE "issue#1".feeds (
 ALTER TABLE "issue#1".feeds OWNER TO "issue#1_dev";
 
 --
--- TOC entry 210 (class 1259 OID 98971)
 -- Name: feeds_id_seq; Type: SEQUENCE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -349,8 +331,6 @@ CREATE SEQUENCE "issue#1".feeds_id_seq
 ALTER TABLE "issue#1".feeds_id_seq OWNER TO "issue#1_dev";
 
 --
--- TOC entry 3198 (class 0 OID 0)
--- Dependencies: 210
 -- Name: feeds_id_seq; Type: SEQUENCE OWNED BY; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -358,7 +338,6 @@ ALTER SEQUENCE "issue#1".feeds_id_seq OWNED BY "issue#1".feeds.id;
 
 
 --
--- TOC entry 213 (class 1259 OID 98985)
 -- Name: post_contents; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -371,7 +350,6 @@ CREATE TABLE "issue#1".post_contents (
 ALTER TABLE "issue#1".post_contents OWNER TO "issue#1_dev";
 
 --
--- TOC entry 214 (class 1259 OID 98988)
 -- Name: posts; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -388,7 +366,6 @@ CREATE TABLE "issue#1".posts (
 ALTER TABLE "issue#1".posts OWNER TO "issue#1_dev";
 
 --
--- TOC entry 215 (class 1259 OID 98995)
 -- Name: post_id_seq; Type: SEQUENCE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -404,8 +381,6 @@ CREATE SEQUENCE "issue#1".post_id_seq
 ALTER TABLE "issue#1".post_id_seq OWNER TO "issue#1_dev";
 
 --
--- TOC entry 3202 (class 0 OID 0)
--- Dependencies: 215
 -- Name: post_id_seq; Type: SEQUENCE OWNED BY; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -413,7 +388,6 @@ ALTER SEQUENCE "issue#1".post_id_seq OWNED BY "issue#1".posts.id;
 
 
 --
--- TOC entry 216 (class 1259 OID 98997)
 -- Name: post_stars; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -427,7 +401,6 @@ CREATE TABLE "issue#1".post_stars (
 ALTER TABLE "issue#1".post_stars OWNER TO "issue#1_dev";
 
 --
--- TOC entry 212 (class 1259 OID 98979)
 -- Name: release_metadata; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -444,7 +417,6 @@ CREATE TABLE "issue#1".release_metadata (
 ALTER TABLE "issue#1".release_metadata OWNER TO "issue#1_dev";
 
 --
--- TOC entry 217 (class 1259 OID 99000)
 -- Name: releases; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -459,7 +431,6 @@ CREATE TABLE "issue#1".releases (
 ALTER TABLE "issue#1".releases OWNER TO "issue#1_dev";
 
 --
--- TOC entry 211 (class 1259 OID 98973)
 -- Name: releases_image_based; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -472,7 +443,6 @@ CREATE TABLE "issue#1".releases_image_based (
 ALTER TABLE "issue#1".releases_image_based OWNER TO "issue#1_dev";
 
 --
--- TOC entry 218 (class 1259 OID 99004)
 -- Name: releases_text_based; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -485,7 +455,6 @@ CREATE TABLE "issue#1".releases_text_based (
 ALTER TABLE "issue#1".releases_text_based OWNER TO "issue#1_dev";
 
 --
--- TOC entry 219 (class 1259 OID 99010)
 -- Name: title_id_seq; Type: SEQUENCE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -501,8 +470,6 @@ CREATE SEQUENCE "issue#1".title_id_seq
 ALTER TABLE "issue#1".title_id_seq OWNER TO "issue#1_dev";
 
 --
--- TOC entry 3209 (class 0 OID 0)
--- Dependencies: 219
 -- Name: title_id_seq; Type: SEQUENCE OWNED BY; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -510,7 +477,6 @@ ALTER SEQUENCE "issue#1".title_id_seq OWNED BY "issue#1".releases.id;
 
 
 --
--- TOC entry 228 (class 1259 OID 123406)
 -- Name: tsvs_comment; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -523,7 +489,6 @@ CREATE TABLE "issue#1".tsvs_comment (
 ALTER TABLE "issue#1".tsvs_comment OWNER TO "issue#1_dev";
 
 --
--- TOC entry 227 (class 1259 OID 123344)
 -- Name: tsvs_posts; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -536,7 +501,6 @@ CREATE TABLE "issue#1".tsvs_posts (
 ALTER TABLE "issue#1".tsvs_posts OWNER TO "issue#1_dev";
 
 --
--- TOC entry 226 (class 1259 OID 123320)
 -- Name: tsvs_release; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -549,7 +513,6 @@ CREATE TABLE "issue#1".tsvs_release (
 ALTER TABLE "issue#1".tsvs_release OWNER TO "issue#1_dev";
 
 --
--- TOC entry 223 (class 1259 OID 115117)
 -- Name: user_avatars; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -562,7 +525,6 @@ CREATE TABLE "issue#1".user_avatars (
 ALTER TABLE "issue#1".user_avatars OWNER TO "issue#1_dev";
 
 --
--- TOC entry 220 (class 1259 OID 99012)
 -- Name: user_bookmarks; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -576,7 +538,6 @@ CREATE TABLE "issue#1".user_bookmarks (
 ALTER TABLE "issue#1".user_bookmarks OWNER TO "issue#1_dev";
 
 --
--- TOC entry 221 (class 1259 OID 99016)
 -- Name: users; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -594,7 +555,6 @@ CREATE TABLE "issue#1".users (
 ALTER TABLE "issue#1".users OWNER TO "issue#1_dev";
 
 --
--- TOC entry 222 (class 1259 OID 99023)
 -- Name: users_bio; Type: TABLE; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -607,7 +567,6 @@ CREATE TABLE "issue#1".users_bio (
 ALTER TABLE "issue#1".users_bio OWNER TO "issue#1_dev";
 
 --
--- TOC entry 2891 (class 2604 OID 99029)
 -- Name: feeds id; Type: DEFAULT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -615,7 +574,6 @@ ALTER TABLE ONLY "issue#1".feeds ALTER COLUMN id SET DEFAULT nextval('"issue#1".
 
 
 --
--- TOC entry 2894 (class 2604 OID 99030)
 -- Name: posts id; Type: DEFAULT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -623,7 +581,6 @@ ALTER TABLE ONLY "issue#1".posts ALTER COLUMN id SET DEFAULT nextval('"issue#1".
 
 
 --
--- TOC entry 2895 (class 2604 OID 99031)
 -- Name: releases id; Type: DEFAULT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -631,17 +588,15 @@ ALTER TABLE ONLY "issue#1".releases ALTER COLUMN id SET DEFAULT nextval('"issue#
 
 
 --
--- TOC entry 3112 (class 0 OID 98938)
--- Dependencies: 203
 -- Data for Name: channel_admins; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
-INSERT INTO "issue#1".channel_admins VALUES ('Isis Cane', 'Isis Cane', true);
+INSERT INTO "issue#1".channel_admins VALUES ('chromagnum', 'rembrandt', true);
+INSERT INTO "issue#1".channel_admins VALUES ('chromagnum', 'loveless', false);
+INSERT INTO "issue#1".channel_admins VALUES ('IsisCane', 'IsisCane', true);
 
 
 --
--- TOC entry 3113 (class 0 OID 98941)
--- Dependencies: 204
 -- Data for Name: channel_official_catalog; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -649,88 +604,75 @@ INSERT INTO "issue#1".channel_official_catalog VALUES ('chromagnum', 6, 4);
 
 
 --
--- TOC entry 3133 (class 0 OID 115130)
--- Dependencies: 224
 -- Data for Name: channel_pictures; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 
 
 --
--- TOC entry 3114 (class 0 OID 98944)
--- Dependencies: 205
 -- Data for Name: channel_stickies; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 
 
 --
--- TOC entry 3115 (class 0 OID 98947)
--- Dependencies: 206
 -- Data for Name: channels; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".channels VALUES ('chromagnum', '2019-12-29 19:59:22.564274+03', 'THE FUTURE IS NOW', 'take it off');
-INSERT INTO "issue#1".channels VALUES ('Isis Cane', '2020-01-16 21:44:42.22749+03', 'Isis Cane''s channel', NULL);
-INSERT INTO "issue#1".channels VALUES ('tempOne', '2020-01-19 23:49:54.013003+03', 'tempOne''s channel', NULL);
+INSERT INTO "issue#1".channels VALUES ('tempOne', '2020-01-22 20:19:15.71383+03', 'tempOne''s channel', NULL);
+INSERT INTO "issue#1".channels VALUES ('IsisCane', '2020-01-16 21:44:42.22749+03', 'Isis Cane''s channel', NULL);
 
 
 --
--- TOC entry 3116 (class 0 OID 98954)
--- Dependencies: 207
 -- Data for Name: comments; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 3, -1, '<p>they can hear me crying… </p>
 ', 'loveless', '2020-01-11 20:16:33.519527+03');
+INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 8, -1, 'It''s easy if you''re passionate...', 'loveless', '2020-01-15 02:14:45.403771+03');
+INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 1, -1, 'Epistien did not kill himself!', 'slimmy', '2020-01-11 19:29:29.058057+03');
 INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 2, 1, 'duhh', 'rembrandtian', '2020-01-11 19:30:04.273774+03');
 INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 6, 3, '<p>the diamond mines are <em>burning</em> </p>
 ', 'rembrandtian', '2020-01-11 20:26:34.222721+03');
-INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 8, -1, 'It''s easy if you''re passionate...', 'loveless', '2020-01-15 02:14:45.403771+03');
-INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 1, -1, 'Epistien did not kill himself!', 'slimmy', '2020-01-11 19:29:29.058057+03');
 
 
 --
--- TOC entry 3117 (class 0 OID 98961)
--- Dependencies: 208
 -- Data for Name: feed_subscriptions; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".feed_subscriptions VALUES (3, 'chromagnum', '2020-01-06 17:01:08.862048+03');
+INSERT INTO "issue#1".feed_subscriptions VALUES (5, 'chromagnum', '2020-01-23 00:00:18.241025+03');
+INSERT INTO "issue#1".feed_subscriptions VALUES (6, 'chromagnum', '2020-01-23 00:00:24.744977+03');
+INSERT INTO "issue#1".feed_subscriptions VALUES (7, 'chromagnum', '2020-01-23 00:00:30.243607+03');
+INSERT INTO "issue#1".feed_subscriptions VALUES (8, 'chromagnum', '2020-01-23 00:00:35.248254+03');
+INSERT INTO "issue#1".feed_subscriptions VALUES (3, 'IsisCane', '2020-01-23 00:34:50.41627+03');
 
 
 --
--- TOC entry 3118 (class 0 OID 98965)
--- Dependencies: 209
 -- Data for Name: feeds; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".feeds VALUES ('rembrandt', 'hot', 3);
-INSERT INTO "issue#1".feeds VALUES ('rembrandtian', 'top', 6);
 INSERT INTO "issue#1".feeds VALUES ('slimmy', 'top', 7);
 INSERT INTO "issue#1".feeds VALUES ('loveless', 'new', 5);
-INSERT INTO "issue#1".feeds VALUES ('Isis Cane', 'hot', 8);
+INSERT INTO "issue#1".feeds VALUES ('rembrandtian', 'top', 6);
+INSERT INTO "issue#1".feeds VALUES ('IsisCane', 'hot', 8);
 
 
 --
--- TOC entry 3122 (class 0 OID 98985)
--- Dependencies: 213
 -- Data for Name: post_contents; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 
 
 --
--- TOC entry 3125 (class 0 OID 98997)
--- Dependencies: 216
 -- Data for Name: post_stars; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 
 
 --
--- TOC entry 3123 (class 0 OID 98988)
--- Dependencies: 214
 -- Data for Name: posts; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -741,8 +683,6 @@ INSERT INTO "issue#1".posts VALUES (6, 'Welcome!', 'Issue #1 v0.1', 'rembrandt',
 
 
 --
--- TOC entry 3121 (class 0 OID 98979)
--- Dependencies: 212
 -- Data for Name: release_metadata; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -753,8 +693,6 @@ INSERT INTO "issue#1".release_metadata VALUES (54, 'Guidelines to the future and
 
 
 --
--- TOC entry 3126 (class 0 OID 99000)
--- Dependencies: 217
 -- Data for Name: releases; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -765,8 +703,6 @@ INSERT INTO "issue#1".releases VALUES (54, 'chromagnum', 'text', '2020-01-12 18:
 
 
 --
--- TOC entry 3120 (class 0 OID 98973)
--- Dependencies: 211
 -- Data for Name: releases_image_based; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -774,8 +710,6 @@ INSERT INTO "issue#1".releases_image_based VALUES (53, 'release.1eb2969c-cf4c-40
 
 
 --
--- TOC entry 3127 (class 0 OID 99004)
--- Dependencies: 218
 -- Data for Name: releases_text_based; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -936,21 +870,17 @@ With such a big project as ours, we''re hard pressed to deliver our features by 
 
 
 --
--- TOC entry 3137 (class 0 OID 123406)
--- Dependencies: 228
 -- Data for Name: tsvs_comment; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".tsvs_comment VALUES (3, '''cri'':5 ''hear'':3 ''loveless'':6B');
-INSERT INTO "issue#1".tsvs_comment VALUES (2, '''duhh'':1 ''rembrandtian'':2B');
-INSERT INTO "issue#1".tsvs_comment VALUES (6, '''burn'':5 ''diamond'':2 ''mine'':3 ''rembrandtian'':6B');
 INSERT INTO "issue#1".tsvs_comment VALUES (8, '''easi'':3 ''loveless'':8B ''passion'':7 ''re'':6');
 INSERT INTO "issue#1".tsvs_comment VALUES (1, '''epistien'':1 ''kill'':4 ''slimmi'':5B');
+INSERT INTO "issue#1".tsvs_comment VALUES (2, '''duhh'':1 ''rembrandtian'':2B');
+INSERT INTO "issue#1".tsvs_comment VALUES (6, '''burn'':5 ''diamond'':2 ''mine'':3 ''rembrandtian'':6B');
 
 
 --
--- TOC entry 3136 (class 0 OID 123344)
--- Dependencies: 227
 -- Data for Name: tsvs_posts; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -961,8 +891,6 @@ INSERT INTO "issue#1".tsvs_posts VALUES (6, '''1'':3A ''chromagnum'':6B ''issu''
 
 
 --
--- TOC entry 3135 (class 0 OID 123320)
--- Dependencies: 226
 -- Data for Name: tsvs_release; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -973,8 +901,6 @@ INSERT INTO "issue#1".tsvs_release VALUES (54, '''archaic'':12 ''blue'':36 ''chr
 
 
 --
--- TOC entry 3132 (class 0 OID 115117)
--- Dependencies: 223
 -- Data for Name: user_avatars; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -982,46 +908,38 @@ INSERT INTO "issue#1".user_avatars VALUES ('loveless', 'user.66cbf2be-c0ef-4056-
 
 
 --
--- TOC entry 3129 (class 0 OID 99012)
--- Dependencies: 220
 -- Data for Name: user_bookmarks; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
-INSERT INTO "issue#1".user_bookmarks VALUES ('rembrandtian', 5, '2019-12-29 20:28:43.700899+03');
-INSERT INTO "issue#1".user_bookmarks VALUES ('rembrandtian', 3, '2019-12-29 20:29:07.679261+03');
 INSERT INTO "issue#1".user_bookmarks VALUES ('slimmy', 3, '2019-12-29 20:35:52.794761+03');
 INSERT INTO "issue#1".user_bookmarks VALUES ('slimmy', 4, '2020-01-12 10:12:37.060716+03');
 INSERT INTO "issue#1".user_bookmarks VALUES ('slimmy', 5, '2020-01-12 10:12:43.839661+03');
+INSERT INTO "issue#1".user_bookmarks VALUES ('rembrandtian', 5, '2019-12-29 20:28:43.700899+03');
+INSERT INTO "issue#1".user_bookmarks VALUES ('rembrandtian', 3, '2019-12-29 20:29:07.679261+03');
 
 
 --
--- TOC entry 3130 (class 0 OID 99016)
--- Dependencies: 221
 -- Data for Name: users; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
-INSERT INTO "issue#1".users VALUES ('hot@hotter.hottest', 'rembrandtian', '2019-12-28 22:54:02.72085+03', '\xafe6d7d32ac4fff5eba8f09debdaaf57f946bd12239409f0f4b161558c7988f17a7cc47bc099bf9afa0f951458609055acd0149855f0ac7b604ecbeb28a63f5d', 'death', NULL, NULL);
-INSERT INTO "issue#1".users VALUES ('serato@saskia.com', 'rembrandt', '2019-12-28 22:52:07.479752+03', '\xe20d91786b7a9317bb0c84c11af36f3f459adb1c386347aab05b68e9eac8dd287689ef1924dd80309c67d8656a9bf520cc4c8dea7fe0196d675437d21eb1da20', 'Y.', 'A.', 'Knowe');
-INSERT INTO "issue#1".users VALUES ('stars@destination.com', 'loveless', '2020-01-08 01:49:31.153913+03', '\x87bba9f7d30eb9f64bc2d77eace67147c370e7073d22cb5bedfc5ae8b5bd3ca60b1748e21df9626749c031208e9811e38c3204a7efdf8a867ebfb9b066325251', 'Jeff', 'k.', 'Shoes');
-INSERT INTO "issue#1".users VALUES ('yat@yayat.yat', 'slimmy', '2019-12-28 23:05:11.662742+03', '\x58df5e6ebc6c6a8b4760f514652d7baaa864cc1e7e656a5734a253ad3b16c4a69561a202f3ae79bab9cbadc6ed20224b90ad7d467a3bfb773964a80e27d03e97', 'Kebab', 'Bab', 'Bob');
-INSERT INTO "issue#1".users VALUES ('zion@magnifico.com', 'Isis Cane', '2020-01-16 21:44:42.22749+03', '\x0e5cbfc12ef5bf26041b1b2c953dc0f733a2717b642de99993e143753397b065b02ef65b6ada58b85376e7da2fd62772ada782489f48a69e27f5af3eb85e70f7', 'Devil', 'Laughter', 'Ramses');
+INSERT INTO "issue#1".users VALUES ('yat@yayat.yat', 'slimmy', '2019-12-28 23:05:11.662742+03', '$2a$10$9tMmjrE2nv.KxvL0HIhk6.KmgwzPtX4MJ0YNSnEMNFjrERcJMjYRC', 'Kebab', 'Bab', 'Bob');
+INSERT INTO "issue#1".users VALUES ('stars@destination.com', 'loveless', '2020-01-08 01:49:31.153913+03', '$2a$10$Oiok9PFU7iPW4O2mDl/2iOr.13LAxO1CrggiHleTP5r3N7gPxGyv6', 'Jeff', 'k.', 'Shoes');
+INSERT INTO "issue#1".users VALUES ('serato@saskia.com', 'rembrandt', '2019-12-28 22:52:07.479752+03', '$2a$10$l689eOM7BwuHWqB9J0wM8OuGFiYXzJ0fo4UL1Dc2T.mRmLLvwys/e', 'Y.', 'A.', 'Knowe');
+INSERT INTO "issue#1".users VALUES ('hot@hotter.hottest', 'rembrandtian', '2019-12-28 22:54:02.72085+03', '$2a$10$K14lpdifmeHPHxA6MptGKe10DlwbaXiKb4fNfmSUqG8hK5LeKWGhK', 'death', NULL, NULL);
+INSERT INTO "issue#1".users VALUES ('zion@magnifico.com', 'IsisCane', '2020-01-16 21:44:42.22749+03', '$2a$10$99IjDKhuTCZ1qhCGOKIWC.fSS1HUFuCsfwGXrTwhSwqjkaj6.osWe', 'Devil', 'Laughter', 'Ramses');
 
 
 --
--- TOC entry 3131 (class 0 OID 99023)
--- Dependencies: 222
 -- Data for Name: users_bio; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
 INSERT INTO "issue#1".users_bio VALUES ('slimmy', 'get out');
 INSERT INTO "issue#1".users_bio VALUES ('rembrandt', 'posh gorrila');
 INSERT INTO "issue#1".users_bio VALUES ('loveless', 'i don&#39;t know what&#39;s real!');
-INSERT INTO "issue#1".users_bio VALUES ('Isis Cane', 'War on your nation and fire to your idols, you scum!');
+INSERT INTO "issue#1".users_bio VALUES ('IsisCane', 'War on your nation and fire to your idols, you scum!');
 
 
 --
--- TOC entry 3214 (class 0 OID 0)
--- Dependencies: 225
 -- Name: comments_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1029,17 +947,13 @@ SELECT pg_catalog.setval('"issue#1".comments_id_seq', 8, true);
 
 
 --
--- TOC entry 3215 (class 0 OID 0)
--- Dependencies: 210
 -- Name: feeds_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
-SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 12, true);
+SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 13, true);
 
 
 --
--- TOC entry 3216 (class 0 OID 0)
--- Dependencies: 215
 -- Name: post_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1047,8 +961,6 @@ SELECT pg_catalog.setval('"issue#1".post_id_seq', 5, true);
 
 
 --
--- TOC entry 3217 (class 0 OID 0)
--- Dependencies: 219
 -- Name: title_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1056,7 +968,6 @@ SELECT pg_catalog.setval('"issue#1".title_id_seq', 55, true);
 
 
 --
--- TOC entry 2900 (class 2606 OID 99033)
 -- Name: channel_admins channel_admins_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1065,7 +976,6 @@ ALTER TABLE ONLY "issue#1".channel_admins
 
 
 --
--- TOC entry 2902 (class 2606 OID 99035)
 -- Name: channel_official_catalog channel_catalog_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1074,7 +984,6 @@ ALTER TABLE ONLY "issue#1".channel_official_catalog
 
 
 --
--- TOC entry 2938 (class 2606 OID 115137)
 -- Name: channel_pictures channel_pictures_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1083,7 +992,6 @@ ALTER TABLE ONLY "issue#1".channel_pictures
 
 
 --
--- TOC entry 2904 (class 2606 OID 99037)
 -- Name: channels channels_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1092,7 +1000,6 @@ ALTER TABLE ONLY "issue#1".channels
 
 
 --
--- TOC entry 2948 (class 2606 OID 123413)
 -- Name: tsvs_comment comment_tsvs_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1101,7 +1008,6 @@ ALTER TABLE ONLY "issue#1".tsvs_comment
 
 
 --
--- TOC entry 2906 (class 2606 OID 123405)
 -- Name: comments comments_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1110,7 +1016,6 @@ ALTER TABLE ONLY "issue#1".comments
 
 
 --
--- TOC entry 2908 (class 2606 OID 99041)
 -- Name: feed_subscriptions feed_channels_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1119,7 +1024,6 @@ ALTER TABLE ONLY "issue#1".feed_subscriptions
 
 
 --
--- TOC entry 2910 (class 2606 OID 99043)
 -- Name: feeds feeds_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1128,7 +1032,6 @@ ALTER TABLE ONLY "issue#1".feeds
 
 
 --
--- TOC entry 2912 (class 2606 OID 99045)
 -- Name: releases_image_based image based_image_name_key; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1137,7 +1040,6 @@ ALTER TABLE ONLY "issue#1".releases_image_based
 
 
 --
--- TOC entry 2914 (class 2606 OID 99047)
 -- Name: releases_image_based image based_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1146,7 +1048,6 @@ ALTER TABLE ONLY "issue#1".releases_image_based
 
 
 --
--- TOC entry 2916 (class 2606 OID 99049)
 -- Name: release_metadata metadata_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1155,7 +1056,6 @@ ALTER TABLE ONLY "issue#1".release_metadata
 
 
 --
--- TOC entry 2918 (class 2606 OID 99051)
 -- Name: post_contents post_contents_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1164,7 +1064,6 @@ ALTER TABLE ONLY "issue#1".post_contents
 
 
 --
--- TOC entry 2920 (class 2606 OID 99053)
 -- Name: posts post_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1173,7 +1072,6 @@ ALTER TABLE ONLY "issue#1".posts
 
 
 --
--- TOC entry 2922 (class 2606 OID 99055)
 -- Name: post_stars post_stars_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1182,7 +1080,6 @@ ALTER TABLE ONLY "issue#1".post_stars
 
 
 --
--- TOC entry 2945 (class 2606 OID 123351)
 -- Name: tsvs_posts posts_tsvs_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1191,7 +1088,6 @@ ALTER TABLE ONLY "issue#1".tsvs_posts
 
 
 --
--- TOC entry 2924 (class 2606 OID 99059)
 -- Name: releases release_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1200,7 +1096,6 @@ ALTER TABLE ONLY "issue#1".releases
 
 
 --
--- TOC entry 2941 (class 2606 OID 123374)
 -- Name: tsvs_release release_tsvs_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1209,7 +1104,6 @@ ALTER TABLE ONLY "issue#1".tsvs_release
 
 
 --
--- TOC entry 2926 (class 2606 OID 99057)
 -- Name: releases_text_based text based_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1218,7 +1112,6 @@ ALTER TABLE ONLY "issue#1".releases_text_based
 
 
 --
--- TOC entry 2936 (class 2606 OID 115124)
 -- Name: user_avatars user_avatars_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1227,7 +1120,6 @@ ALTER TABLE ONLY "issue#1".user_avatars
 
 
 --
--- TOC entry 2928 (class 2606 OID 99061)
 -- Name: user_bookmarks user_bookmarks_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1236,7 +1128,6 @@ ALTER TABLE ONLY "issue#1".user_bookmarks
 
 
 --
--- TOC entry 2934 (class 2606 OID 99063)
 -- Name: users_bio users_bio_pk; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1245,7 +1136,6 @@ ALTER TABLE ONLY "issue#1".users_bio
 
 
 --
--- TOC entry 2930 (class 2606 OID 99065)
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1254,7 +1144,6 @@ ALTER TABLE ONLY "issue#1".users
 
 
 --
--- TOC entry 2932 (class 2606 OID 99067)
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1263,7 +1152,6 @@ ALTER TABLE ONLY "issue#1".users
 
 
 --
--- TOC entry 2946 (class 1259 OID 123419)
 -- Name: comment_ts_index; Type: INDEX; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1271,7 +1159,6 @@ CREATE INDEX comment_ts_index ON "issue#1".tsvs_comment USING gin (vector);
 
 
 --
--- TOC entry 2943 (class 1259 OID 123375)
 -- Name: post_ts_index; Type: INDEX; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1279,7 +1166,6 @@ CREATE INDEX post_ts_index ON "issue#1".tsvs_posts USING gin (vector);
 
 
 --
--- TOC entry 2939 (class 1259 OID 123343)
 -- Name: release_ts_index; Type: INDEX; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1287,7 +1173,6 @@ CREATE INDEX release_ts_index ON "issue#1".tsvs_release USING gin (vector);
 
 
 --
--- TOC entry 2942 (class 1259 OID 123326)
 -- Name: release_tsvs_release_id_uindex; Type: INDEX; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1295,7 +1180,6 @@ CREATE UNIQUE INDEX release_tsvs_release_id_uindex ON "issue#1".tsvs_release USI
 
 
 --
--- TOC entry 2979 (class 2620 OID 131613)
 -- Name: comments comment_insert_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1303,7 +1187,6 @@ CREATE TRIGGER comment_insert_trigger AFTER INSERT ON "issue#1".comments FOR EAC
 
 
 --
--- TOC entry 2978 (class 2620 OID 131612)
 -- Name: comments comment_update_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1311,7 +1194,6 @@ CREATE TRIGGER comment_update_trigger AFTER UPDATE ON "issue#1".comments FOR EAC
 
 
 --
--- TOC entry 2981 (class 2620 OID 131617)
 -- Name: release_metadata metadata_insert_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1319,7 +1201,6 @@ CREATE TRIGGER metadata_insert_trigger AFTER INSERT ON "issue#1".release_metadat
 
 
 --
--- TOC entry 2980 (class 2620 OID 131616)
 -- Name: release_metadata metadata_update_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1327,7 +1208,6 @@ CREATE TRIGGER metadata_update_trigger AFTER UPDATE ON "issue#1".release_metadat
 
 
 --
--- TOC entry 2983 (class 2620 OID 131615)
 -- Name: posts post_insert_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1335,7 +1215,6 @@ CREATE TRIGGER post_insert_trigger AFTER INSERT ON "issue#1".posts FOR EACH ROW 
 
 
 --
--- TOC entry 2982 (class 2620 OID 131614)
 -- Name: posts post_update_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1343,7 +1222,6 @@ CREATE TRIGGER post_update_trigger AFTER UPDATE ON "issue#1".posts FOR EACH ROW 
 
 
 --
--- TOC entry 2985 (class 2620 OID 123310)
 -- Name: users setup_user; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1351,7 +1229,6 @@ CREATE TRIGGER setup_user AFTER INSERT ON "issue#1".users FOR EACH ROW EXECUTE F
 
 
 --
--- TOC entry 2984 (class 2620 OID 131618)
 -- Name: releases_text_based text_based_update_trigger; Type: TRIGGER; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1359,7 +1236,6 @@ CREATE TRIGGER text_based_update_trigger AFTER UPDATE ON "issue#1".releases_text
 
 
 --
--- TOC entry 2949 (class 2606 OID 99068)
 -- Name: channel_admins channel_admins_channel_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1368,7 +1244,6 @@ ALTER TABLE ONLY "issue#1".channel_admins
 
 
 --
--- TOC entry 2950 (class 2606 OID 99073)
 -- Name: channel_admins channel_admins_user_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1377,7 +1252,6 @@ ALTER TABLE ONLY "issue#1".channel_admins
 
 
 --
--- TOC entry 2951 (class 2606 OID 99078)
 -- Name: channel_official_catalog channel_catalog_channel_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1386,7 +1260,6 @@ ALTER TABLE ONLY "issue#1".channel_official_catalog
 
 
 --
--- TOC entry 2952 (class 2606 OID 99083)
 -- Name: channel_official_catalog channel_catalog_post_from_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1395,7 +1268,6 @@ ALTER TABLE ONLY "issue#1".channel_official_catalog
 
 
 --
--- TOC entry 2953 (class 2606 OID 99088)
 -- Name: channel_official_catalog channel_catalog_release_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1404,7 +1276,6 @@ ALTER TABLE ONLY "issue#1".channel_official_catalog
 
 
 --
--- TOC entry 2974 (class 2606 OID 115138)
 -- Name: channel_pictures channel_pictures_channels_username_fk; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1413,7 +1284,6 @@ ALTER TABLE ONLY "issue#1".channel_pictures
 
 
 --
--- TOC entry 2977 (class 2606 OID 123414)
 -- Name: tsvs_comment comment_tsvs_comments_id_fk; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1422,7 +1292,6 @@ ALTER TABLE ONLY "issue#1".tsvs_comment
 
 
 --
--- TOC entry 2956 (class 2606 OID 123313)
 -- Name: comments comments_commented_by_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1431,7 +1300,6 @@ ALTER TABLE ONLY "issue#1".comments
 
 
 --
--- TOC entry 2955 (class 2606 OID 99098)
 -- Name: comments comments_post_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1440,7 +1308,6 @@ ALTER TABLE ONLY "issue#1".comments
 
 
 --
--- TOC entry 2957 (class 2606 OID 99103)
 -- Name: feed_subscriptions feed_channels_channel_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1449,7 +1316,6 @@ ALTER TABLE ONLY "issue#1".feed_subscriptions
 
 
 --
--- TOC entry 2958 (class 2606 OID 99108)
 -- Name: feed_subscriptions feed_channels_feed_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1458,7 +1324,6 @@ ALTER TABLE ONLY "issue#1".feed_subscriptions
 
 
 --
--- TOC entry 2959 (class 2606 OID 99113)
 -- Name: feeds feeds_owner_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1467,7 +1332,6 @@ ALTER TABLE ONLY "issue#1".feeds
 
 
 --
--- TOC entry 2961 (class 2606 OID 99123)
 -- Name: release_metadata metadata_release_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1476,7 +1340,6 @@ ALTER TABLE ONLY "issue#1".release_metadata
 
 
 --
--- TOC entry 2962 (class 2606 OID 99128)
 -- Name: post_contents post_contents_post_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1485,7 +1348,6 @@ ALTER TABLE ONLY "issue#1".post_contents
 
 
 --
--- TOC entry 2963 (class 2606 OID 139805)
 -- Name: post_contents post_contents_release_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1494,7 +1356,6 @@ ALTER TABLE ONLY "issue#1".post_contents
 
 
 --
--- TOC entry 2966 (class 2606 OID 99138)
 -- Name: post_stars post_stars_post_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1503,7 +1364,6 @@ ALTER TABLE ONLY "issue#1".post_stars
 
 
 --
--- TOC entry 2967 (class 2606 OID 99143)
 -- Name: post_stars post_stars_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1512,7 +1372,6 @@ ALTER TABLE ONLY "issue#1".post_stars
 
 
 --
--- TOC entry 2964 (class 2606 OID 99148)
 -- Name: posts posts_channel_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1521,7 +1380,6 @@ ALTER TABLE ONLY "issue#1".posts
 
 
 --
--- TOC entry 2965 (class 2606 OID 99153)
 -- Name: posts posts_poster_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1530,7 +1388,6 @@ ALTER TABLE ONLY "issue#1".posts
 
 
 --
--- TOC entry 2976 (class 2606 OID 123352)
 -- Name: tsvs_posts posts_tsvs_posts_id_fk; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1539,7 +1396,6 @@ ALTER TABLE ONLY "issue#1".tsvs_posts
 
 
 --
--- TOC entry 2975 (class 2606 OID 123332)
 -- Name: tsvs_release release_tsvs_releases_id_fk; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1548,7 +1404,6 @@ ALTER TABLE ONLY "issue#1".tsvs_release
 
 
 --
--- TOC entry 2960 (class 2606 OID 139810)
 -- Name: releases_image_based releases_image_based_release_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1557,7 +1412,6 @@ ALTER TABLE ONLY "issue#1".releases_image_based
 
 
 --
--- TOC entry 2968 (class 2606 OID 99158)
 -- Name: releases releases_owner_channel_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1566,7 +1420,6 @@ ALTER TABLE ONLY "issue#1".releases
 
 
 --
--- TOC entry 2954 (class 2606 OID 99163)
 -- Name: channel_stickies stickied_posts_post_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1575,7 +1428,6 @@ ALTER TABLE ONLY "issue#1".channel_stickies
 
 
 --
--- TOC entry 2969 (class 2606 OID 99168)
 -- Name: releases_text_based text based_title_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1584,7 +1436,6 @@ ALTER TABLE ONLY "issue#1".releases_text_based
 
 
 --
--- TOC entry 2973 (class 2606 OID 115125)
 -- Name: user_avatars user_avatars_users_username_fk; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1593,7 +1444,6 @@ ALTER TABLE ONLY "issue#1".user_avatars
 
 
 --
--- TOC entry 2970 (class 2606 OID 99173)
 -- Name: user_bookmarks user_bookmarks_post_id_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1602,7 +1452,6 @@ ALTER TABLE ONLY "issue#1".user_bookmarks
 
 
 --
--- TOC entry 2971 (class 2606 OID 99178)
 -- Name: user_bookmarks user_bookmarks_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1611,7 +1460,6 @@ ALTER TABLE ONLY "issue#1".user_bookmarks
 
 
 --
--- TOC entry 2972 (class 2606 OID 99183)
 -- Name: users_bio users_bio_username_fkey; Type: FK CONSTRAINT; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -1620,8 +1468,6 @@ ALTER TABLE ONLY "issue#1".users_bio
 
 
 --
--- TOC entry 3146 (class 0 OID 0)
--- Dependencies: 263
 -- Name: FUNCTION citextin(cstring); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1629,8 +1475,6 @@ GRANT ALL ON FUNCTION "issue#1".citextin(cstring) TO "issue#1_REST";
 
 
 --
--- TOC entry 3147 (class 0 OID 0)
--- Dependencies: 229
 -- Name: FUNCTION citextout("issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1638,8 +1482,6 @@ GRANT ALL ON FUNCTION "issue#1".citextout("issue#1".citext) TO "issue#1_REST";
 
 
 --
--- TOC entry 3148 (class 0 OID 0)
--- Dependencies: 264
 -- Name: FUNCTION citextrecv(internal); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1647,8 +1489,6 @@ GRANT ALL ON FUNCTION "issue#1".citextrecv(internal) TO "issue#1_REST";
 
 
 --
--- TOC entry 3149 (class 0 OID 0)
--- Dependencies: 265
 -- Name: FUNCTION citextsend("issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1656,8 +1496,6 @@ GRANT ALL ON FUNCTION "issue#1".citextsend("issue#1".citext) TO "issue#1_REST";
 
 
 --
--- TOC entry 3150 (class 0 OID 0)
--- Dependencies: 230
 -- Name: FUNCTION citext(boolean); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1665,8 +1503,6 @@ GRANT ALL ON FUNCTION "issue#1".citext(boolean) TO "issue#1_REST";
 
 
 --
--- TOC entry 3151 (class 0 OID 0)
--- Dependencies: 266
 -- Name: FUNCTION citext(character); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1674,8 +1510,6 @@ GRANT ALL ON FUNCTION "issue#1".citext(character) TO "issue#1_REST";
 
 
 --
--- TOC entry 3152 (class 0 OID 0)
--- Dependencies: 231
 -- Name: FUNCTION citext(inet); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1683,8 +1517,6 @@ GRANT ALL ON FUNCTION "issue#1".citext(inet) TO "issue#1_REST";
 
 
 --
--- TOC entry 3153 (class 0 OID 0)
--- Dependencies: 267
 -- Name: FUNCTION citext_cmp("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1692,8 +1524,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_cmp("issue#1".citext, "issue#1".citext) T
 
 
 --
--- TOC entry 3154 (class 0 OID 0)
--- Dependencies: 268
 -- Name: FUNCTION citext_eq("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1701,8 +1531,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_eq("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3155 (class 0 OID 0)
--- Dependencies: 234
 -- Name: FUNCTION citext_ge("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1710,8 +1538,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_ge("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3156 (class 0 OID 0)
--- Dependencies: 235
 -- Name: FUNCTION citext_gt("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1719,8 +1545,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_gt("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3157 (class 0 OID 0)
--- Dependencies: 269
 -- Name: FUNCTION citext_hash("issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1728,8 +1552,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_hash("issue#1".citext) TO "issue#1_REST";
 
 
 --
--- TOC entry 3158 (class 0 OID 0)
--- Dependencies: 270
 -- Name: FUNCTION citext_hash_extended("issue#1".citext, bigint); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1737,8 +1559,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_hash_extended("issue#1".citext, bigint) T
 
 
 --
--- TOC entry 3159 (class 0 OID 0)
--- Dependencies: 236
 -- Name: FUNCTION citext_larger("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1746,8 +1566,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_larger("issue#1".citext, "issue#1".citext
 
 
 --
--- TOC entry 3160 (class 0 OID 0)
--- Dependencies: 271
 -- Name: FUNCTION citext_le("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1755,8 +1573,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_le("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3161 (class 0 OID 0)
--- Dependencies: 232
 -- Name: FUNCTION citext_lt("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1764,8 +1580,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_lt("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3162 (class 0 OID 0)
--- Dependencies: 233
 -- Name: FUNCTION citext_ne("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1773,8 +1587,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_ne("issue#1".citext, "issue#1".citext) TO
 
 
 --
--- TOC entry 3163 (class 0 OID 0)
--- Dependencies: 272
 -- Name: FUNCTION citext_pattern_cmp("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1782,8 +1594,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_pattern_cmp("issue#1".citext, "issue#1".c
 
 
 --
--- TOC entry 3164 (class 0 OID 0)
--- Dependencies: 273
 -- Name: FUNCTION citext_pattern_ge("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1791,8 +1601,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_pattern_ge("issue#1".citext, "issue#1".ci
 
 
 --
--- TOC entry 3165 (class 0 OID 0)
--- Dependencies: 274
 -- Name: FUNCTION citext_pattern_gt("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1800,8 +1608,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_pattern_gt("issue#1".citext, "issue#1".ci
 
 
 --
--- TOC entry 3166 (class 0 OID 0)
--- Dependencies: 275
 -- Name: FUNCTION citext_pattern_le("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1809,8 +1615,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_pattern_le("issue#1".citext, "issue#1".ci
 
 
 --
--- TOC entry 3167 (class 0 OID 0)
--- Dependencies: 249
 -- Name: FUNCTION citext_pattern_lt("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1818,8 +1622,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_pattern_lt("issue#1".citext, "issue#1".ci
 
 
 --
--- TOC entry 3168 (class 0 OID 0)
--- Dependencies: 237
 -- Name: FUNCTION citext_smaller("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1827,8 +1629,6 @@ GRANT ALL ON FUNCTION "issue#1".citext_smaller("issue#1".citext, "issue#1".citex
 
 
 --
--- TOC entry 3169 (class 0 OID 0)
--- Dependencies: 276
 -- Name: FUNCTION regexp_match("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1836,8 +1636,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_match("issue#1".citext, "issue#1".citext)
 
 
 --
--- TOC entry 3170 (class 0 OID 0)
--- Dependencies: 277
 -- Name: FUNCTION regexp_match("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1845,8 +1643,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_match("issue#1".citext, "issue#1".citext,
 
 
 --
--- TOC entry 3171 (class 0 OID 0)
--- Dependencies: 278
 -- Name: FUNCTION regexp_matches("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1854,8 +1650,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_matches("issue#1".citext, "issue#1".citex
 
 
 --
--- TOC entry 3172 (class 0 OID 0)
--- Dependencies: 243
 -- Name: FUNCTION regexp_matches("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1863,8 +1657,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_matches("issue#1".citext, "issue#1".citex
 
 
 --
--- TOC entry 3173 (class 0 OID 0)
--- Dependencies: 279
 -- Name: FUNCTION regexp_replace("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1872,8 +1664,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_replace("issue#1".citext, "issue#1".citex
 
 
 --
--- TOC entry 3174 (class 0 OID 0)
--- Dependencies: 280
 -- Name: FUNCTION regexp_replace("issue#1".citext, "issue#1".citext, text, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1881,8 +1671,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_replace("issue#1".citext, "issue#1".citex
 
 
 --
--- TOC entry 3175 (class 0 OID 0)
--- Dependencies: 244
 -- Name: FUNCTION regexp_split_to_array("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1890,8 +1678,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_split_to_array("issue#1".citext, "issue#1
 
 
 --
--- TOC entry 3176 (class 0 OID 0)
--- Dependencies: 245
 -- Name: FUNCTION regexp_split_to_array("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1899,8 +1685,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_split_to_array("issue#1".citext, "issue#1
 
 
 --
--- TOC entry 3177 (class 0 OID 0)
--- Dependencies: 246
 -- Name: FUNCTION regexp_split_to_table("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1908,8 +1692,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_split_to_table("issue#1".citext, "issue#1
 
 
 --
--- TOC entry 3178 (class 0 OID 0)
--- Dependencies: 281
 -- Name: FUNCTION regexp_split_to_table("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1917,8 +1699,6 @@ GRANT ALL ON FUNCTION "issue#1".regexp_split_to_table("issue#1".citext, "issue#1
 
 
 --
--- TOC entry 3179 (class 0 OID 0)
--- Dependencies: 247
 -- Name: FUNCTION replace("issue#1".citext, "issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1926,8 +1706,6 @@ GRANT ALL ON FUNCTION "issue#1".replace("issue#1".citext, "issue#1".citext, "iss
 
 
 --
--- TOC entry 3180 (class 0 OID 0)
--- Dependencies: 282
 -- Name: FUNCTION split_part("issue#1".citext, "issue#1".citext, integer); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1935,8 +1713,6 @@ GRANT ALL ON FUNCTION "issue#1".split_part("issue#1".citext, "issue#1".citext, i
 
 
 --
--- TOC entry 3181 (class 0 OID 0)
--- Dependencies: 248
 -- Name: FUNCTION strpos("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1944,8 +1720,6 @@ GRANT ALL ON FUNCTION "issue#1".strpos("issue#1".citext, "issue#1".citext) TO "i
 
 
 --
--- TOC entry 3182 (class 0 OID 0)
--- Dependencies: 238
 -- Name: FUNCTION texticlike("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1953,8 +1727,6 @@ GRANT ALL ON FUNCTION "issue#1".texticlike("issue#1".citext, "issue#1".citext) T
 
 
 --
--- TOC entry 3183 (class 0 OID 0)
--- Dependencies: 242
 -- Name: FUNCTION texticlike("issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1962,8 +1734,6 @@ GRANT ALL ON FUNCTION "issue#1".texticlike("issue#1".citext, text) TO "issue#1_R
 
 
 --
--- TOC entry 3184 (class 0 OID 0)
--- Dependencies: 283
 -- Name: FUNCTION texticnlike("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1971,8 +1741,6 @@ GRANT ALL ON FUNCTION "issue#1".texticnlike("issue#1".citext, "issue#1".citext) 
 
 
 --
--- TOC entry 3185 (class 0 OID 0)
--- Dependencies: 239
 -- Name: FUNCTION texticnlike("issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1980,8 +1748,6 @@ GRANT ALL ON FUNCTION "issue#1".texticnlike("issue#1".citext, text) TO "issue#1_
 
 
 --
--- TOC entry 3186 (class 0 OID 0)
--- Dependencies: 284
 -- Name: FUNCTION texticregexeq("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1989,8 +1755,6 @@ GRANT ALL ON FUNCTION "issue#1".texticregexeq("issue#1".citext, "issue#1".citext
 
 
 --
--- TOC entry 3187 (class 0 OID 0)
--- Dependencies: 285
 -- Name: FUNCTION texticregexeq("issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -1998,8 +1762,6 @@ GRANT ALL ON FUNCTION "issue#1".texticregexeq("issue#1".citext, text) TO "issue#
 
 
 --
--- TOC entry 3188 (class 0 OID 0)
--- Dependencies: 240
 -- Name: FUNCTION texticregexne("issue#1".citext, "issue#1".citext); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -2007,8 +1769,6 @@ GRANT ALL ON FUNCTION "issue#1".texticregexne("issue#1".citext, "issue#1".citext
 
 
 --
--- TOC entry 3189 (class 0 OID 0)
--- Dependencies: 241
 -- Name: FUNCTION texticregexne("issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -2016,8 +1776,6 @@ GRANT ALL ON FUNCTION "issue#1".texticregexne("issue#1".citext, text) TO "issue#
 
 
 --
--- TOC entry 3190 (class 0 OID 0)
--- Dependencies: 250
 -- Name: FUNCTION translate("issue#1".citext, "issue#1".citext, text); Type: ACL; Schema: issue#1; Owner: postgres
 --
 
@@ -2025,8 +1783,6 @@ GRANT ALL ON FUNCTION "issue#1".translate("issue#1".citext, "issue#1".citext, te
 
 
 --
--- TOC entry 3191 (class 0 OID 0)
--- Dependencies: 203
 -- Name: TABLE channel_admins; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2034,8 +1790,6 @@ GRANT ALL ON TABLE "issue#1".channel_admins TO "issue#1_REST";
 
 
 --
--- TOC entry 3192 (class 0 OID 0)
--- Dependencies: 204
 -- Name: TABLE channel_official_catalog; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2043,8 +1797,6 @@ GRANT ALL ON TABLE "issue#1".channel_official_catalog TO "issue#1_REST";
 
 
 --
--- TOC entry 3193 (class 0 OID 0)
--- Dependencies: 205
 -- Name: TABLE channel_stickies; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2052,8 +1804,6 @@ GRANT ALL ON TABLE "issue#1".channel_stickies TO "issue#1_REST";
 
 
 --
--- TOC entry 3194 (class 0 OID 0)
--- Dependencies: 206
 -- Name: TABLE channels; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2061,8 +1811,6 @@ GRANT ALL ON TABLE "issue#1".channels TO "issue#1_REST";
 
 
 --
--- TOC entry 3195 (class 0 OID 0)
--- Dependencies: 207
 -- Name: TABLE comments; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2070,8 +1818,6 @@ GRANT ALL ON TABLE "issue#1".comments TO "issue#1_REST";
 
 
 --
--- TOC entry 3196 (class 0 OID 0)
--- Dependencies: 208
 -- Name: TABLE feed_subscriptions; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2079,8 +1825,6 @@ GRANT ALL ON TABLE "issue#1".feed_subscriptions TO "issue#1_REST";
 
 
 --
--- TOC entry 3197 (class 0 OID 0)
--- Dependencies: 209
 -- Name: TABLE feeds; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2088,8 +1832,6 @@ GRANT ALL ON TABLE "issue#1".feeds TO "issue#1_REST";
 
 
 --
--- TOC entry 3199 (class 0 OID 0)
--- Dependencies: 210
 -- Name: SEQUENCE feeds_id_seq; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2097,8 +1839,6 @@ GRANT ALL ON SEQUENCE "issue#1".feeds_id_seq TO "issue#1_REST";
 
 
 --
--- TOC entry 3200 (class 0 OID 0)
--- Dependencies: 213
 -- Name: TABLE post_contents; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2106,8 +1846,6 @@ GRANT ALL ON TABLE "issue#1".post_contents TO "issue#1_REST";
 
 
 --
--- TOC entry 3201 (class 0 OID 0)
--- Dependencies: 214
 -- Name: TABLE posts; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2115,8 +1853,6 @@ GRANT ALL ON TABLE "issue#1".posts TO "issue#1_REST";
 
 
 --
--- TOC entry 3203 (class 0 OID 0)
--- Dependencies: 215
 -- Name: SEQUENCE post_id_seq; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2124,8 +1860,6 @@ GRANT ALL ON SEQUENCE "issue#1".post_id_seq TO "issue#1_REST";
 
 
 --
--- TOC entry 3204 (class 0 OID 0)
--- Dependencies: 216
 -- Name: TABLE post_stars; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2133,8 +1867,6 @@ GRANT ALL ON TABLE "issue#1".post_stars TO "issue#1_REST";
 
 
 --
--- TOC entry 3205 (class 0 OID 0)
--- Dependencies: 212
 -- Name: TABLE release_metadata; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2142,8 +1874,6 @@ GRANT ALL ON TABLE "issue#1".release_metadata TO "issue#1_REST";
 
 
 --
--- TOC entry 3206 (class 0 OID 0)
--- Dependencies: 217
 -- Name: TABLE releases; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2151,8 +1881,6 @@ GRANT ALL ON TABLE "issue#1".releases TO "issue#1_REST";
 
 
 --
--- TOC entry 3207 (class 0 OID 0)
--- Dependencies: 211
 -- Name: TABLE releases_image_based; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2160,8 +1888,6 @@ GRANT ALL ON TABLE "issue#1".releases_image_based TO "issue#1_REST";
 
 
 --
--- TOC entry 3208 (class 0 OID 0)
--- Dependencies: 218
 -- Name: TABLE releases_text_based; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2169,8 +1895,6 @@ GRANT ALL ON TABLE "issue#1".releases_text_based TO "issue#1_REST";
 
 
 --
--- TOC entry 3210 (class 0 OID 0)
--- Dependencies: 219
 -- Name: SEQUENCE title_id_seq; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2178,8 +1902,6 @@ GRANT ALL ON SEQUENCE "issue#1".title_id_seq TO "issue#1_REST";
 
 
 --
--- TOC entry 3211 (class 0 OID 0)
--- Dependencies: 220
 -- Name: TABLE user_bookmarks; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2187,8 +1909,6 @@ GRANT ALL ON TABLE "issue#1".user_bookmarks TO "issue#1_REST";
 
 
 --
--- TOC entry 3212 (class 0 OID 0)
--- Dependencies: 221
 -- Name: TABLE users; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
@@ -2196,15 +1916,11 @@ GRANT ALL ON TABLE "issue#1".users TO "issue#1_REST";
 
 
 --
--- TOC entry 3213 (class 0 OID 0)
--- Dependencies: 222
 -- Name: TABLE users_bio; Type: ACL; Schema: issue#1; Owner: issue#1_dev
 --
 
 GRANT ALL ON TABLE "issue#1".users_bio TO "issue#1_REST";
 
-
--- Completed on 2020-01-21 15:06:17
 
 --
 -- PostgreSQL database dump complete

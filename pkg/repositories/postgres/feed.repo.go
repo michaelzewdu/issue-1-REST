@@ -77,7 +77,6 @@ func (repo *feedRepository) GetFeed(username string) (*feed.Feed, error) {
 
 // GetChannels retrieves the all the channels the given feed has subscribed to.
 func (repo *feedRepository) GetChannels(f *feed.Feed, sortBy string, sortOrder string) ([]*feed.Channel, error) {
-	// TODO test this method
 	channelSubscriptions := make([]*feed.Channel, 0)
 	rows, err := repo.db.Query(fmt.Sprintf(`
 		SELECT username, name, subscription_time
