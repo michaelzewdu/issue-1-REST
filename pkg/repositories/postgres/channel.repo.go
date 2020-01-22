@@ -391,19 +391,19 @@ func (repo *channelRepository) AddAdmin(channelUsername string, adminUsername st
 							VALUES ($1, $2,$3)`, channelUsername, adminUsername, owner)
 	if err != nil {
 		const foreignKeyViolationErrorCode = pq.ErrorCode("23503")
-		const duplicateKeyViolationErrorCode = pq.ErrorCode("23505")
-		if pgErr, isPGErr := err.(pq.Error); !isPGErr {
-			if pgErr.Code != foreignKeyViolationErrorCode {
-				return channel.ErrAdminNotFound
-			} else if pgErr.Code != duplicateKeyViolationErrorCode {
-				return channel.ErrAdminAlreadyExists
-			} else {
-				return fmt.Errorf("inserting into channel_stickies failed because of: %s", err.Error())
-			}
+		const uniqueKeyViolationErrorCode = pq.ErrorCode("23505")
+		pgErr := err.(*pq.Error)
+
+		if pgErr.Code == foreignKeyViolationErrorCode {
+			return channel.ErrAdminNotFound
+		} else if pgErr.Code == uniqueKeyViolationErrorCode {
+			return channel.ErrAdminAlreadyExists
+		} else {
+
+			return fmt.Errorf("inserting into admins failed because of: %s ", err.Error())
 
 		}
 
-		return fmt.Errorf("insertion of user failed because of: %s", err.Error())
 	}
 	return nil
 }
@@ -449,8 +449,19 @@ func (repo *channelRepository) GetAdmins(channelUsername string) ([]string, erro
 func (repo *channelRepository) ChangeOwner(channelUsername string, ownerUsername string) error {
 	var err error
 	var owner bool = true
+
 	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins
 								  SET is_owner = $3 WHERE channel_username =$1 AND "user"=$2`, channelUsername, ownerUsername, owner)
+	if err != nil {
+		const foreignKeyViolationErrorCode = pq.ErrorCode("23503")
+		pgErr := err.(*pq.Error)
+
+		if pgErr.Code == foreignKeyViolationErrorCode {
+			return channel.ErrOwnerNotFound
+		}
+		return fmt.Errorf("changing of owner failed because of: %s", err.Error())
+	}
+	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins SET is_owner = $3 where channel_username=$1 AND  "user"<>$2`, channelUsername, ownerUsername, !owner)
 	if err != nil {
 		return fmt.Errorf("changing of owner failed because of: %s", err.Error())
 	}

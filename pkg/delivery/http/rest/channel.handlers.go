@@ -89,6 +89,8 @@ func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				c.Name = r.FormValue("name")
 				c.Description = r.FormValue("description")
 			} else {
+				//append(c.AdminUsernames, username)
+				//c.OwnerUsername=username
 				err := json.NewDecoder(r.Body).Decode(&c)
 				if err != nil {
 					response.Data = jSendFailData{
@@ -664,9 +666,10 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			// this block blocks users updating owner of channel if is not the admin of the channel herself accessing the route
 			c, _ := s.ChannelService.GetChannel(channelUsername)
 			ownerUsername := c.OwnerUsername
-			if ownerUsername == r.Header.Get("authorized_username") {
+			if ownerUsername != r.Header.Get("authorized_username") {
 				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
-					s.Logger.Printf("unauthorized update owner of channel attempt")
+
+					s.Logger.Printf("unauthorized update owner of channel attempt %s")
 					w.WriteHeader(http.StatusUnauthorized)
 					return
 				}
@@ -677,8 +680,15 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case nil:
 			response.Status = "success"
-
 			s.Logger.Printf("success updating owner of  %s  channel to %s", channelUsername, ownerUsername)
+		case channel.ErrOwnerToBeNotAdmin:
+			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
+			response.Data = jSendFailData{
+				ErrorReason:  "ownerUsername",
+				ErrorMessage: "owner doesnt exist in admin list",
+			}
+			statusCode = http.StatusBadRequest
+
 		case channel.ErrChannelNotFound:
 			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
 			response.Data = jSendFailData{
@@ -689,7 +699,7 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		case channel.ErrOwnerNotFound:
 			s.Logger.Printf(fmt.Sprintf("Update of owner failed because: %s", err.Error()))
 			response.Data = jSendFailData{
-				ErrorReason:  "adminUsername",
+				ErrorReason:  "ownerUsername",
 				ErrorMessage: "Owner user doesn't exits",
 			}
 			statusCode = http.StatusNotFound
@@ -864,7 +874,8 @@ func deleteReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Requ
 				}
 				statusCode = http.StatusNotFound
 			case channel.ErrReleaseNotFound:
-				s.Logger.Printf(fmt.Sprintf("Deleting of Admin failed because: %s", errC.Error()))
+
+				s.Logger.Printf(fmt.Sprintf("Deleting of Release failed because: %s", errC.Error()))
 				response.Data = jSendFailData{
 					ErrorReason:  "releaseID",
 					ErrorMessage: "Release doesn't exits",
@@ -927,7 +938,7 @@ func deleteReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *h
 			switch errC {
 			case nil:
 				response.Status = "success"
-				s.Logger.Printf("success deleting release  %d from channel %s's Catalog", ReleaseID, channelUsername)
+				s.Logger.Printf("success deleting release  %d from channel %s's Official Catalog", ReleaseID, channelUsername)
 			case channel.ErrChannelNotFound:
 				s.Logger.Printf(fmt.Sprintf("Deleting of release failed because: %s", errC.Error()))
 				response.Data = jSendFailData{
@@ -1372,7 +1383,7 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 			}
 			if response.Data == nil {
 				var requestData struct {
-					PostID int `json:"postID"` //postFrom ID
+					PostID uint `json:"postID"` //postFrom ID
 				}
 				err = json.NewDecoder(r.Body).Decode(&requestData)
 				if err != nil {
@@ -1386,7 +1397,7 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 				}
 				// if queries are clean
 				if response.Data == nil {
-					err := s.ChannelService.AddReleaseToOfficialCatalog(channelname, uint(releaseID), uint(requestData.PostID))
+					err := s.ChannelService.AddReleaseToOfficialCatalog(channelname, uint(releaseID), requestData.PostID)
 					switch err {
 					case nil:
 						s.Logger.Printf("success adding release %d from post %d to official catalog channel %s", releaseID, requestData.PostID, channelname)
@@ -1441,6 +1452,7 @@ func getChannelPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			switch err {
 			case nil:
 				for i := 0; i < len(c.PostIDs); i++ {
+
 					if c.PostIDs[i] == uint(postID) {
 						response.Status = "success"
 						postid := postID

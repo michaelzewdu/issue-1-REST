@@ -68,6 +68,9 @@ var ErrAdminNotFound = fmt.Errorf("admin not found")
 // ErrOwnerNotFound is returned when the channel Owner username specified isn't recognized
 var ErrOwnerNotFound = fmt.Errorf("owner not found")
 
+// ErrOwnerToBeNotAdmin is returned when the channel Owner username specified isn't an admin
+var ErrOwnerToBeNotAdmin = fmt.Errorf("owner to be is not an admin")
+
 // ErrReleaseNotFound is returned when the channel Catalog Release ID specified isn't recognized
 var ErrReleaseNotFound = fmt.Errorf("release not found")
 
@@ -162,20 +165,51 @@ func (service *service) DeleteAdmin(channelUsername string, adminUsername string
 
 // DeleteReleaseFromOfficialCatalog deletes the given release ReleaseID from the catalog of channel of given username,ChannelUsername
 func (service *service) DeleteReleaseFromCatalog(channelUsername string, ReleaseID uint) error {
-	_, err := service.GetChannel(channelUsername)
+	c, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete release because %s", err.Error())
 		return err
+	}
+	i := 0
+	oia := false
+
+	for ; i < len(c.ReleaseIDs); i++ {
+		if c.ReleaseIDs[i] == ReleaseID {
+			fmt.Printf("%d", c.ReleaseIDs[i])
+			oia = true
+			break
+		} else {
+			oia = false
+		}
+	}
+	if oia == false {
+		fmt.Printf("%d", ReleaseID)
+		return ErrReleaseNotFound
 	}
 	return (*service.repo).DeleteReleaseFromCatalog(channelUsername, ReleaseID)
 }
 
 // DeleteReleaseFromOfficialCatalog deletes the given release ReleaseID from the official catalog of channel of given username,ChannelUsername
 func (service *service) DeleteReleaseFromOfficialCatalog(channelUsername string, ReleaseID uint) error {
-	_, err := service.GetChannel(channelUsername)
+
+	c, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete release because %s", err.Error())
 		return err
+	}
+	i := 0
+	oia := false
+
+	for ; i < len(c.OfficialReleaseIDs); i++ {
+		if c.OfficialReleaseIDs[i] == ReleaseID {
+			oia = true
+			break
+		} else {
+			oia = false
+		}
+	}
+	if oia == false {
+		return ErrReleaseNotFound
 	}
 	return (*service.repo).DeleteReleaseFromOfficialCatalog(channelUsername, ReleaseID)
 }
@@ -202,10 +236,25 @@ func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostI
 
 // ChangeOwner changes the given ownerUsername as the owner for the given channel of username channelUsername.
 func (service *service) ChangeOwner(channelUsername string, ownerUsername string) error {
-	_, err := service.GetChannel(channelUsername)
+	c, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can't change owner because %s", err.Error())
 		return err
+	}
+
+	i := 0
+	oia := false
+
+	for ; i < len(c.AdminUsernames); i++ {
+		if c.AdminUsernames[i] == ownerUsername {
+			oia = true
+			break
+		} else {
+			oia = false
+		}
+	}
+	if oia == false {
+		return ErrOwnerToBeNotAdmin
 	}
 	return (*service.repo).ChangeOwner(channelUsername, ownerUsername)
 }
