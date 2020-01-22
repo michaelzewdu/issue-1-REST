@@ -11,6 +11,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
+	"github.com/slim-crown/issue-1-REST/pkg/services/search"
+
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/comment"
@@ -29,6 +32,7 @@ type Logger interface {
 	Log(format string, a ...interface{})
 }
 */
+
 // Setup is used to inject dependencies and other required data used by the handlers.
 type Setup struct {
 	Config
@@ -45,7 +49,8 @@ type Dependencies struct {
 	ReleaseService  release.Service
 	PostService     post.Service
 	CommentService  comment.Service
-	jwtBackend      *JWTAuthenticationBackend
+	SearchService   search.Service
+	AuthService     auth.Service
 	Logger          *log.Logger
 }
 
@@ -66,7 +71,6 @@ func NewMux(s *Setup) *mux.Router {
 		http.StripPrefix(s.ImageServingRoute, http.FileServer(http.Dir(s.ImageStoragePath))))
 
 	// setup security
-	s.jwtBackend = NewJWTAuthenticationBackend(s)
 	mainRouter.Use(ParseAuthTokenMiddleware(s))
 	secureRouter.Use(CheckForAuthMiddleware(s))
 
@@ -78,6 +82,8 @@ func NewMux(s *Setup) *mux.Router {
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
 	attachPostRoutesToRouters(mainRouter, secureRouter, s)
+
+	mainRouter.HandleFunc("/search", getSearch(s)).Methods("GET")
 
 	return mainRouter
 }
