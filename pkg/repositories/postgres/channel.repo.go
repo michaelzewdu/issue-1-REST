@@ -474,8 +474,17 @@ func (repo *channelRepository) AddReleaseToOfficialCatalog(channelUsername strin
 	_, err := repo.db.Exec(`INSERT INTO channel_official_catalog (channel_username,release_id,post_from_id)
 							VALUES ($1, $2,$3)`, channelUsername, releaseID, postID)
 	if err != nil {
-		return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
+		const uniqueKeyViolationErrorCode = pq.ErrorCode("23505")
+		pgErr := err.(*pq.Error)
+		if pgErr.Code == uniqueKeyViolationErrorCode {
+			return channel.ErrReleaseAlreadyExists
+		} else {
+
+			return fmt.Errorf("addition of tuple of release channel_official_catalogs because of: %s", err.Error())
+
+		}
 	}
+
 	return nil
 }
 

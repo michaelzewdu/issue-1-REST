@@ -53,11 +53,17 @@ const (
 // ErrUserNameOccupied is returned when the channel username specified is occupied
 var ErrUserNameOccupied = fmt.Errorf("user name is occupied")
 
+// ErrPostAlreadyStickied is returned when the post provided is already a sticky post
+var ErrPostAlreadyStickied = fmt.Errorf("post already stickied")
+
 // ErrAdminAlreadyExists is returned when the channel username specified already has specified user as admin
 var ErrAdminAlreadyExists = fmt.Errorf("user is already an admin")
 
 // ErrChannelNotFound is returned when the  channel username specified isn't recognized
 var ErrChannelNotFound = fmt.Errorf("channel not found  error")
+
+// ErrReleaseAlreadyExists is returned when a unique key violation happens
+var ErrReleaseAlreadyExists = fmt.Errorf("release already exists")
 
 // ErrInvalidChannelData is returned when the channel username specified isn't recognized
 var ErrInvalidChannelData = fmt.Errorf("passed channel data is invalid")
@@ -78,7 +84,7 @@ var ErrReleaseNotFound = fmt.Errorf("release not found")
 var ErrStickiedPostNotFound = fmt.Errorf("stickied post not found")
 
 // ErrPostNotFound is returned when the channel Post ID specified isn't recognized
-var ErrPostNotFound = fmt.Errorf("release not found")
+var ErrPostNotFound = fmt.Errorf("post not found")
 
 // ErrStickiedPostFull is returned when the channel has filled it's stickied post quota
 var ErrStickiedPostFull = fmt.Errorf("two posts already stickied")
@@ -92,6 +98,18 @@ type service struct {
 func NewService(repo *Repository, allServices *map[string]interface{}) Service {
 	s := &service{allServices: allServices, repo: repo}
 	return s
+}
+
+//
+func (service *service) IsPostFromChannel(channelUsername string, postID uint) bool {
+	c, _ := service.GetChannel(channelUsername)
+	i := 0
+	for ; i < len(c.PostIDs); i++ {
+		if c.PostIDs[i] == postID {
+			return true
+		}
+	}
+	return false
 }
 
 // AddChannel adds a channel
@@ -221,15 +239,32 @@ func (service *service) AddReleaseToOfficialCatalog(channelUsername string, rele
 		//fmt.Errorf("channel add  release because %s", err.Error())
 		return err
 	}
+	if !service.IsPostFromChannel(channelUsername, postID) {
+		return ErrPostNotFound
+	}
 	return (*service.repo).AddReleaseToOfficialCatalog(channelUsername, releaseID, postID)
 }
 
 // DeleteStickiedPost deletes the given post id from stickied post for the channel of given username,channelUsername.
 func (service *service) DeleteStickiedPost(channelUsername string, stickiedPostID uint) error {
-	_, err := service.GetChannel(channelUsername)
+	c, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can'delete stickied post because %s", err.Error())
 		return err
+	}
+	i := 0
+	oia := false
+
+	for ; i < len(c.StickiedPostIDs); i++ {
+		if c.StickiedPostIDs[i] == stickiedPostID {
+			oia = true
+			break
+		} else {
+			oia = false
+		}
+	}
+	if oia == false {
+		return ErrStickiedPostNotFound
 	}
 	return (*service.repo).DeleteStickiedPost(channelUsername, stickiedPostID)
 }
@@ -261,10 +296,24 @@ func (service *service) ChangeOwner(channelUsername string, ownerUsername string
 
 // StickyPost sticks the given postID for the channel of the given username on top of the post view of channel.
 func (service *service) StickyPost(channelUsername string, postID uint) error {
-	_, err := service.GetChannel(channelUsername)
+	c, err := service.GetChannel(channelUsername)
 	if err != nil {
 		//fmt.Errorf("channel can't sticky post because %s", err.Error())
 		return err
+	}
+	i := 0
+	oia := false
+
+	for ; i < len(c.StickiedPostIDs); i++ {
+		if c.StickiedPostIDs[i] == postID {
+			oia = true
+			break
+		} else {
+			oia = false
+		}
+	}
+	if oia == true {
+		return ErrPostAlreadyStickied
 	}
 	return (*service.repo).StickyPost(channelUsername, postID)
 }
