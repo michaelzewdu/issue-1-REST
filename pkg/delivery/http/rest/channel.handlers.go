@@ -1646,7 +1646,6 @@ func getStickiedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			}
 			fmt.Printf("here13")
 			response.Data = posts
-			s.Logger.Printf("%s", posts[0])
 			s.Logger.Printf("success fetching post of channel %s", channelUsername)
 
 		case channel.ErrChannelNotFound:

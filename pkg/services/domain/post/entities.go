@@ -8,11 +8,11 @@ type Post struct {
 	ID               int            `json:"id"`
 	PostedByUsername string         `json:"PostedByUsername,omitempty"`
 	OriginChannel    string         `json:"originChannel,omitempty"`
-	Title            string         `json:"title"`
-	Description      string         `json:"description"`
-	ContentsID       []int          `json:"contentsID"`
-	Stars            map[string]int `json:"stars"`
-	CommentsID       []int          `json:"commentsID"`
+	Title            string         `json:"title,omitempty"`
+	Description      string         `json:"description,omitempty"`
+	ContentsID       []int          `json:"contentsID,omitempty"`
+	Stars            map[string]int `json:"stars,omitempty"`
+	CommentsID       []int          `json:"commentsID,omitempty"`
 	CreationTime     time.Time      `json:"creationTime"`
 }
 

@@ -81,18 +81,19 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 				                  SELECT release_id, content
 				                  FROM (
 				                           SELECT release_id, image_name as content
-				                           FROM image_based
+				                           FROM releases_image_based
 				                       ) AS ric
 				                  UNION
 				                  SELECT *
-				                  FROM text_based
+				                  FROM releases_text_based
 				              ) AS cs
 				              ON releases.id = cs.release_id
 				     ) AS "r*"
 				         NATURAL JOIN
 				     (
 				         SELECT release_id
-				         FROM channel_official_catalog
+		FROM "issue#1".channel_official_catalog
+		WHERE channel_username )
 				     ) AS "coc*"
 				ORDER BY %s %s NULLS LAST
 				LIMIT $1 OFFSET $2`, by, order)
@@ -280,12 +281,12 @@ func (repo releaseRepository) execUpdateStatementOnColumnIntoMetadata(column str
 func (repo releaseRepository) execUpdateStatementForContent(t release.Type, value string, id int) error {
 	var query string
 	if t == release.Image {
-		query = `INSERT INTO image_based (release_id, image_name)
+		query = `INSERT INTO releases_image_based (release_id, image_name)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET image_name = $2`
 	} else {
-		query = `INSERT INTO text_based (release_id, content)
+		query = `INSERT INTO releases_text_based (release_id, content)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET content = $2`
@@ -301,11 +302,11 @@ func (repo releaseRepository) getContent(id int, t release.Type) (string, error)
 	var content, query string
 	if t == release.Image {
 		query = `SELECT COALESCE(image_name, '') 
-				FROM image_based 
+				FROM releases_image_based 
 				WHERE release_id = $1`
 	} else {
 		query = `SELECT COALESCE(content, '') 
-				FROM text_based 
+				FROM releases_text_based 
 				WHERE release_id = $1`
 	}
 	err := repo.db.QueryRow(query, id).Scan(&content)
