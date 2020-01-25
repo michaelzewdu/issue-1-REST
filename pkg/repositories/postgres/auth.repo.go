@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
 )
@@ -18,45 +19,25 @@ func NewAuthRepository(DB *sql.DB, allRepos *map[string]interface{}) auth.Reposi
 
 // Authenticate checks the given pass hash against the pass hash found in the database for the username.
 func (repo *jWtAuthRepository) Authenticate(u *auth.User) (bool, error) {
-	/*	var hashedPassword string
-		{
-			// this block hashes the password
-			cat := u.Password + u.Username
-			hashedPasswordArr := sha512.Sum512([]byte(cat))
-			hashedPassword = hex.EncodeToString(hashedPasswordArr[:])
-		}
-	*/
-	query := `
-SELECT EXISTS(
-               SELECT username
-               FROM users
-               WHERE username = $2
-                 AND pass_hash = sha512(
-                       ($1 || $2)::bytea
-                   )::text
-           )
-           OR
-       EXISTS(
-               SELECT username
-               FROM users
-               WHERE email = $3
-                 AND pass_hash = sha512(
-                       ($1
-                           ||
-                        (
-                            SELECT username
-                            from users
-                            where email = $3
-                        )
-                           )::bytea
-                   )::text
-           )`
-	var accepted bool
-	err := repo.db.QueryRow(query, u.Password, u.Username, u.Email).Scan(&accepted)
-	if err != nil {
-		return false, fmt.Errorf("couldn't authenticate user beacause: %w", err)
+	query := `SELECT pass_hash from users where username = $1 or email = $2`
+	var passHash string
+	err := repo.db.QueryRow(query, u.Username, u.Email).Scan(&passHash)
+	if err == sql.ErrNoRows {
+		return false, auth.ErrUserNotFound
+	} else if err != nil {
+		return false, fmt.Errorf("couldn't get passhash of user beacause: %w", err)
 	}
-	return accepted, nil
+	err = bcrypt.CompareHashAndPassword([]byte(passHash), []byte(u.Password))
+	switch err {
+	case nil:
+		return true, nil
+	case bcrypt.ErrHashTooShort:
+		return false, err
+	case bcrypt.ErrMismatchedHashAndPassword:
+		return false, nil
+	default:
+		return false, fmt.Errorf("bcrypt hash compare failed because: %w", err)
+	}
 }
 
 // AddToBlacklist - this method is only implemented in memory cache as of now.

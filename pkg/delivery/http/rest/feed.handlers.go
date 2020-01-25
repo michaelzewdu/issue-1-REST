@@ -3,7 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
+	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/feed"
 	"net/http"
 	"strconv"
@@ -19,8 +19,9 @@ func getFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")
@@ -62,8 +63,9 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")
@@ -129,7 +131,6 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				}
 				response.Data = truePosts
 				s.Logger.Printf("success fetching posts for feed")
-				// TODO deliver actual posts from post service
 			case feed.ErrFeedNotFound:
 				s.Logger.Printf("fetching of feed failed because: %v", err)
 				response.Data = jSendFailData{
@@ -158,8 +159,9 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")
@@ -206,7 +208,13 @@ func getFeedChannels(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			trueChannels := make(map[time.Time]interface{}, 0)
 			for _, c := range channels {
 				if temp, err := s.ChannelService.GetChannel(c.Channelname); err == nil {
-					trueChannels[c.SubscriptionTime] = temp
+					tempChannel := channel.Channel{
+						ChannelUsername: temp.ChannelUsername,
+						Name:            temp.Name,
+						Description:     temp.Description,
+						PictureURL:      temp.PictureURL,
+					}
+					trueChannels[c.SubscriptionTime] = tempChannel
 				} else {
 					trueChannels[c.SubscriptionTime] = c
 				}
@@ -237,8 +245,10 @@ func postFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusCreated
 
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")
@@ -308,8 +318,9 @@ func putFeed(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")
@@ -372,8 +383,9 @@ func deleteFeedChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user feed request")

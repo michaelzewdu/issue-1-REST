@@ -7,10 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
 	"time"
 
-	"github.com/microcosm-cc/bluemonday"
 	"github.com/slim-crown/issue-1-REST/pkg/delivery/http/rest"
 	"github.com/slim-crown/issue-1-REST/pkg/services/auth"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
@@ -94,71 +92,74 @@ func main() {
 	services := make(map[string]interface{})
 	cacheRepos := make(map[string]interface{})
 	dbRepos := make(map[string]interface{})
+
 	{
-		var channelDBRepo = postgres.NewChannelRepository(db, &dbRepos)
-		dbRepos["Channel"] = &channelDBRepo
-		var channelCacheRepo = memory.NewChannelRepository(&channelDBRepo, &cacheRepos)
-		cacheRepos["Channel"] = &channelCacheRepo
-		setup.ChannelService = channel.NewService(&channelCacheRepo, &services)
-		services["Channel"] = &setup.ChannelService
-	}
-	{
-		var usrDBRepo = postgres.NewUserRepository(db, &dbRepos)
-		dbRepos["User"] = &usrDBRepo
-		var usrCacheRepo = memory.NewUserRepository(&usrDBRepo, &cacheRepos)
-		cacheRepos["User"] = &usrCacheRepo
-		setup.UserService = user.NewService(&usrCacheRepo, &services)
-		services["User"] = &setup.UserService
-	}
-	{
-		var feedDBRepo = postgres.NewFeedRepository(db, &dbRepos)
-		dbRepos["Feed"] = &feedDBRepo
-		var feedCacheRepo = memory.NewFeedRepository(&feedDBRepo, &cacheRepos)
-		cacheRepos["Feed"] = &feedCacheRepo
-		setup.FeedService = feed.NewService(&feedCacheRepo, &services)
-		services["Feed"] = &setup.FeedService
-	}
-	{
-		var releaseDBRepo = postgres.NewReleaseRepository(db, &dbRepos)
-		dbRepos["Release"] = &releaseDBRepo
-		var releaseCacheRepo = memory.NewReleaseRepository(&releaseDBRepo)
-		cacheRepos["Release"] = &releaseCacheRepo
-		setup.ReleaseService = release.NewService(&releaseCacheRepo)
-		services["Release"] = &setup.ReleaseService
-	}
-	{
-		var postDBRepo = postgres.NewPostRepository(db, &dbRepos)
-		dbRepos["Post"] = &postDBRepo
-		var postCacheRepo = memory.NewPostRepository(&postDBRepo)
-		cacheRepos["Post"] = &postCacheRepo
-		setup.PostService = post.NewService(&postCacheRepo)
-		services["Post"] = &setup.PostService
-	}
-	{
-		var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
-		dbRepos["Comment"] = &commentDBRepo
-		var commentCacheRepo = memory.NewCommentRepository(&commentDBRepo)
-		cacheRepos["Comment"] = &commentCacheRepo
-		setup.CommentService = comment.NewService(&commentCacheRepo)
-		services["Comment"] = &setup.CommentService
-	}
-	{
-		var searchDBRepo = postgres.NewSearchRepository(db, &dbRepos)
-		dbRepos["Search"] = &searchDBRepo
-		setup.SearchService = search.NewService(&searchDBRepo)
-		services["Search"] = &setup.SearchService
+		{
+			var channelDBRepo = postgres.NewChannelRepository(db, &dbRepos)
+			dbRepos["Channel"] = &channelDBRepo
+			var channelCacheRepo = memory.NewChannelRepository(&channelDBRepo, &cacheRepos)
+			cacheRepos["Channel"] = &channelCacheRepo
+			setup.ChannelService = channel.NewService(&channelCacheRepo, &services)
+			services["Channel"] = &setup.ChannelService
+		}
+		{
+			var usrDBRepo = postgres.NewUserRepository(db, &dbRepos)
+			dbRepos["User"] = &usrDBRepo
+			var usrCacheRepo = memory.NewUserRepository(&usrDBRepo, &cacheRepos)
+			cacheRepos["User"] = &usrCacheRepo
+			setup.UserService = user.NewService(&usrCacheRepo, &services)
+			services["User"] = &setup.UserService
+		}
+		{
+			var feedDBRepo = postgres.NewFeedRepository(db, &dbRepos)
+			dbRepos["Feed"] = &feedDBRepo
+			var feedCacheRepo = memory.NewFeedRepository(&feedDBRepo, &cacheRepos)
+			cacheRepos["Feed"] = &feedCacheRepo
+			setup.FeedService = feed.NewService(&feedCacheRepo, &services)
+			services["Feed"] = &setup.FeedService
+		}
+		{
+			var releaseDBRepo = postgres.NewReleaseRepository(db, &dbRepos)
+			dbRepos["Release"] = &releaseDBRepo
+			var releaseCacheRepo = memory.NewReleaseRepository(&releaseDBRepo)
+			cacheRepos["Release"] = &releaseCacheRepo
+			setup.ReleaseService = release.NewService(&releaseCacheRepo)
+			services["Release"] = &setup.ReleaseService
+		}
+		{
+			var postDBRepo = postgres.NewPostRepository(db, &dbRepos)
+			dbRepos["Post"] = &postDBRepo
+			var postCacheRepo = memory.NewPostRepository(&postDBRepo)
+			cacheRepos["Post"] = &postCacheRepo
+			setup.PostService = post.NewService(&postCacheRepo)
+			services["Post"] = &setup.PostService
+		}
+		{
+			var commentDBRepo = postgres.NewCommentRepository(db, &dbRepos)
+			dbRepos["Comment"] = &commentDBRepo
+			var commentCacheRepo = memory.NewCommentRepository(&commentDBRepo)
+			cacheRepos["Comment"] = &commentCacheRepo
+			setup.CommentService = comment.NewService(&commentCacheRepo)
+			services["Comment"] = &setup.CommentService
+		}
+		{
+			var searchDBRepo = postgres.NewSearchRepository(db, &dbRepos)
+			dbRepos["Search"] = &searchDBRepo
+			setup.SearchService = search.NewService(&searchDBRepo)
+			services["Search"] = &setup.SearchService
+		}
 	}
 
 	setup.ImageServingRoute = "/images/"
 	setup.ImageStoragePath = "data/images/"
-	setup.HostAddress = "http://localhost"
+	setup.HostAddress = "localhost"
 	setup.Port = "8080"
 
 	setup.HostAddress += ":" + setup.Port
 
-	setup.StrictSanitizer = bluemonday.StrictPolicy()
-	setup.MarkupSanitizer = bluemonday.UGCPolicy()
-	setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
+	// setup.StrictSanitizer = bluemonday.StrictPolicy()
+	// setup.MarkupSanitizer = bluemonday.UGCPolicy()
+	// setup.MarkupSanitizer.AllowAttrs("class").Matching(regexp.MustCompile("^language-[a-zA-Z0-9]+$")).OnElements("code")
 
 	setup.TokenSigningSecret = []byte("secret")
 	setup.TokenAccessLifetime = 15 * time.Minute
@@ -180,6 +181,7 @@ func main() {
 
 	setup.Logger.Printf("server running...")
 
+	// command line ui
 	go func() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
@@ -191,8 +193,15 @@ func main() {
 			}
 		}
 	}()
-	// setup.HostAddress = "https://localhost" + ":" + setup.Port
-	//log.Fatal(http.ListenAndServeTLS(":"+setup.Port, "cmd/server/cert.pem", "cmd/server/key.pem",mux))
 
-	log.Fatal(http.ListenAndServe(":"+setup.Port, mux))
+	setup.HTTPS = false
+
+	if setup.HTTPS {
+		setup.HostAddress = "https://" + setup.HostAddress
+		log.Fatal(http.ListenAndServeTLS(":"+setup.Port, "cmd/server/cert.pem", "cmd/server/key.pem", mux))
+	} else {
+		setup.HostAddress = "http://" + setup.HostAddress
+		log.Fatal(http.ListenAndServe(":"+setup.Port, mux))
+	}
+
 }

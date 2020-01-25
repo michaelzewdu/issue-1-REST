@@ -133,7 +133,6 @@ func (repo *userRepository) Authenticate(u *user.User) (bool, error) {
 	return (*repo.secondaryRepo).Authenticate(u)
 }
 
-
 // AddPicture calls the same method on the wrapped repo with a lil caching in between.
 func (repo *userRepository) AddPicture(username, name string) error {
 	err := (*repo.secondaryRepo).AddPicture(username, name)

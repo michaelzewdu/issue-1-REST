@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,17 +13,21 @@ import (
 	"time"
 
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
-
-	"github.com/gorilla/mux"
 )
 
 func sanitizeUser(u *user.User, s *Setup) {
-	u.Username = s.StrictSanitizer.Sanitize(u.Username)
+	// u.Username = s.StrictSanitizer.Sanitize(u.Username)
+	// // TODO validate email
+	// u.FirstName = s.StrictSanitizer.Sanitize(u.FirstName)
+	// u.MiddleName = s.StrictSanitizer.Sanitize(u.MiddleName)
+	// u.LastName = s.StrictSanitizer.Sanitize(u.LastName)
+	// u.Bio = s.StrictSanitizer.Sanitize(u.Bio)
+	u.Username = html.EscapeString(u.Username)
 	// TODO validate email
-	u.FirstName = s.StrictSanitizer.Sanitize(u.FirstName)
-	u.MiddleName = s.StrictSanitizer.Sanitize(u.MiddleName)
-	u.LastName = s.StrictSanitizer.Sanitize(u.LastName)
-	u.Bio = s.StrictSanitizer.Sanitize(u.Bio)
+	u.FirstName = html.EscapeString(u.FirstName)
+	u.MiddleName = html.EscapeString(u.MiddleName)
+	u.LastName = html.EscapeString(u.LastName)
+	u.Bio = html.EscapeString(u.Bio)
 }
 
 var emailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
@@ -152,7 +157,8 @@ func getUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
 
 		s.Logger.Printf("trying to fetch user %s", username)
@@ -287,7 +293,7 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
 
 		{ // this block blocks user updating of user if is not the user herself accessing the route
@@ -324,7 +330,6 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			case u.FirstName == "" && u.Username == "" && u.Bio == "" && u.Email == "" &&
 				u.LastName == "" && u.MiddleName == "" && u.Password == "":
 				// no update able data
-				statusCode = http.StatusNoContent
 				u, err = s.UserService.GetUser(username)
 				switch err {
 				case nil:
@@ -337,20 +342,29 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					response.Message = "server error when updating user"
 					statusCode = http.StatusInternalServerError
 				}
-			case u.Username != "":
-				if len(u.Username) > 24 || len(u.Username) < 5 {
-					response.Data = jSendFailData{
-						ErrorReason:  "username",
-						ErrorMessage: "username length shouldn't be shorter that 5 and longer than 24 chars",
+			case u.Username != "" || u.Email != "":
+				if u.Username != "" {
+					if len(u.Username) > 24 || len(u.Username) < 5 {
+						response.Data = jSendFailData{
+							ErrorReason:  "username",
+							ErrorMessage: "username length shouldn't be shorter that 5 and longer than 24 chars",
+						}
+						break
 					}
-					break
 				}
-				fallthrough
-			case u.Email != "":
-				if !emailRX.MatchString(u.Email) {
+				if u.Email != "" {
+					if !emailRX.MatchString(u.Email) {
+						response.Data = jSendFailData{
+							ErrorReason:  "email",
+							ErrorMessage: "email given is not valid",
+						}
+						break
+					}
+				}
+				if len(u.Password) < 8 {
 					response.Data = jSendFailData{
-						ErrorReason:  "email",
-						ErrorMessage: "email given is not valid",
+						ErrorReason:  "password",
+						ErrorMessage: "password length shouldn't be shorter that 8 chars",
 					}
 					break
 				}
@@ -411,8 +425,9 @@ func deleteUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized update user attempt")
@@ -442,8 +457,10 @@ func getUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized get user bookmarks request")
@@ -455,10 +472,17 @@ func getUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		switch err {
 		case nil:
 			response.Status = "success"
-			// TODO get bookmarks
 			bookmarks := make(map[time.Time]interface{})
 			for t, id := range u.BookmarkedPosts {
 				if temp, err := s.PostService.GetPost(id); err == nil {
+					//tempPost := post.Post{
+					//	ID:               temp.ID,
+					//	PostedByUsername: temp.PostedByUsername,
+					//	OriginChannel:    temp.OriginChannel,
+					//	Title:            temp.Title,
+					//	Description:      temp.Description,
+					//	CreationTime:     time.Time{},
+					//}
 					bookmarks[t] = temp
 				} else {
 					bookmarks[t] = id
@@ -490,8 +514,10 @@ func postUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized post user bookmarks request")
@@ -567,8 +593,10 @@ func putUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized put user bookmarks request")
@@ -624,8 +652,10 @@ func deleteUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized delete bookmarks attempt")
@@ -675,7 +705,7 @@ func getUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
 
 		u, err := s.UserService.GetUser(username)
@@ -708,8 +738,10 @@ func putUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block secures the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized user picture setting request")
@@ -789,8 +821,10 @@ func deleteUserPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 		username := vars["username"]
+
 		{ // this block blocks user deletion of a user if is not the user herself accessing the route
 			if username != r.Header.Get("authorized_username") {
 				s.Logger.Printf("unauthorized delete user picture attempt")

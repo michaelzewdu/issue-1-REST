@@ -10,7 +10,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
-	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
 )
 
 // ParseAuthTokenMiddleware checks  if the attached request has a valid
@@ -56,7 +55,7 @@ func ParseAuthTokenMiddleware(s *Setup) func(next http.Handler) http.Handler {
 				}
 			}
 			// if not accepted
-			r.Header.Set("authorized_username", "HerUsernameIs25LettersLng")
+			r.Header.Set("authorized_username", "---HerUsername25Letters--")
 			r.Header.Del("authorized_username_expired")
 			next.ServeHTTP(w, r)
 		})
@@ -103,10 +102,16 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			s.Logger.Printf("bad auth request")
 			statusCode = http.StatusBadRequest
 		} else {
+			requestUser.Email = "" // remove after email auth is fully implemented
 			success, err := s.AuthService.Authenticate(requestUser)
 			switch err {
 			case nil:
 				if success {
+					{
+						if requestUser.Email != "" {
+							// todo email auth
+						}
+					}
 					tokenString, err := s.AuthService.GenerateToken(requestUser.Username)
 					if err != nil {
 						s.Logger.Printf("token generation failed because: %v", err)
@@ -130,7 +135,7 @@ func postTokenAuth(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					}
 					statusCode = http.StatusUnauthorized
 				}
-			case user.ErrUserNotFound:
+			case auth.ErrUserNotFound:
 				s.Logger.Printf("unsuccessful authentication attempt")
 				response.Data = jSendFailData{
 					ErrorReason:  "credentials",

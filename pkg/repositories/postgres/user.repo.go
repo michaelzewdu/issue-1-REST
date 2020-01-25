@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"time"
 
 	"github.com/lib/pq"
@@ -26,8 +27,12 @@ func NewUserRepository(DB *sql.DB, allRepos *map[string]interface{}) user.Reposi
 // AddUser takes in a user.User struct and persists it in the database.
 func (repo *userRepository) AddUser(u *user.User) (*user.User, error) {
 	var err error
+	passHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate bcrypt has because: %w", err)
+	}
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".users (username, email, pass_hash)
-							VALUES ($1, $2, (sha512(($3 || $1::varchar(24))::bytea)::text))`, u.Username, u.Email, u.Password)
+							VALUES ($1, $2, $3)`, u.Username, u.Email, string(passHash))
 	if err != nil {
 		return nil, fmt.Errorf("insertion of user failed because of: %w", err)
 	}
@@ -71,7 +76,6 @@ func (repo *userRepository) GetUser(username string) (*user.User, error) {
 
 // getBookmarkedPosts is just a helper function
 func (repo *userRepository) getBookmarkedPosts(username string) (map[time.Time]int, error) {
-	// TODO test this method
 	var bookmarkedPosts = make(map[time.Time]int, 0)
 
 	rows, err := repo.db.Query(`SELECT post_id, creation_time
@@ -111,16 +115,14 @@ func (repo *userRepository) UpdateUser(username string, u *user.User) (*user.Use
 	// }
 	// Checks if value is to be updated before attempting.
 	// This way, there won't be columns with go's zero string value of "" instead of null
-	if u.Username != "" {
-		err := repo.execUpdateStatementOnColumn("username", u.Username, username)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		// change username for subsequent calls if username changed
-		username = u.Username
-	}
 	if u.Password != "" {
-		err := repo.execUpdateStatementOnColumn("pass_hash", u.Password, username)
+
+		passHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate bcrypt has because: %w", err)
+		}
+
+		err = repo.execUpdateStatementOnColumn("pass_hash", string(passHash), username)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -157,6 +159,14 @@ func (repo *userRepository) UpdateUser(username string, u *user.User) (*user.Use
 		if err != nil {
 			errs = append(errs, fmt.Errorf("upsertion of bio failed because of: %v", err))
 		}
+	}
+	if u.Username != "" {
+		err := repo.execUpdateStatementOnColumn("username", u.Username, username)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		// change username for subsequent calls if username changed
+		username = u.Username
 	}
 	/*
 		if u.PictureURL != "" {
@@ -295,7 +305,6 @@ SELECT EXISTS(
 
 // BookmarkPost bookmarks the given postID for the user of the given username.
 func (repo *userRepository) BookmarkPost(username string, postID int) error {
-	// TODO code for upserts in feed repo
 	_, err := repo.db.Exec(`INSERT INTO user_bookmarks (username, post_id)
 							VALUES ($1, $2)
 							ON CONFLICT DO NOTHING`, username, postID)

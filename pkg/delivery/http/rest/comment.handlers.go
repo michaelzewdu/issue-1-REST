@@ -3,28 +3,28 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/slim-crown/issue-1-REST/pkg/services/domain/comment"
-	"gopkg.in/russross/blackfriday.v2"
+	"html"
 	"net/http"
 	"strconv"
+
+	"github.com/slim-crown/issue-1-REST/pkg/services/domain/comment"
 )
 
 func sanitizeComment(c *comment.Comment, s *Setup) {
-	c.Content = string(s.MarkupSanitizer.SanitizeBytes(
-		blackfriday.Run(
-			[]byte(c.Content),
-			blackfriday.WithExtensions(blackfriday.CommonExtensions),
-		),
-	))
-	if c.Content == "<p></p>\n" {
-		c.Content = ""
-	}
-
+	// c.Content = string(s.MarkupSanitizer.SanitizeBytes(
+	// 	blackfriday.Run(
+	// 		[]byte(c.Content),
+	// 		blackfriday.WithExtensions(blackfriday.CommonExtensions),
+	// 	),
+	// ))
+	// if c.Content == "<p></p>\n" {
+	// 	c.Content = ""
+	// }
+	c.Content = html.EscapeString(c.Content)
 }
 
 // postComment returns a handler for POST /posts/{postID}/comments requests
-// it also handles /posts/{postID}/comments/{rootCommentID}/replies requests
+// it also handles /posts/{postID}/comments/{commentID}/replies requests
 func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
@@ -33,23 +33,34 @@ func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 		c := new(comment.Comment)
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
+
+		rootCommentIDRaw, found := vars["commentID"]
+		if found { // is reply
+			c.ReplyTo, err = strconv.Atoi(rootCommentIDRaw)
+			if err != nil {
+				s.Logger.Printf("reply attempt of non invalid comment id %s", rootCommentIDRaw)
+				response.Data = jSendFailData{
+					ErrorReason:  "commentID",
+					ErrorMessage: fmt.Sprintf("invalid commentID %s", rootCommentIDRaw),
+				}
+				statusCode = http.StatusBadRequest
+			}
+		} else {
+			c.ReplyTo = -1
+		}
 
 		postIDRaw := vars["postID"]
 		c.OriginPost, err = strconv.Atoi(postIDRaw)
 		if err != nil {
 			s.Logger.Printf("post comment attempt on non invalid post id %s", postIDRaw)
 			response.Data = jSendFailData{
-				ErrorReason:  "releaseID",
+				ErrorReason:  "postID",
 				ErrorMessage: fmt.Sprintf("invalid post id %s", postIDRaw),
 			}
 			statusCode = http.StatusBadRequest
 		}
-		rootCommentIDRaw := vars["rootCommentID"]
-		c.ReplyTo, err = strconv.Atoi(rootCommentIDRaw)
-		if err != nil {
-			c.ReplyTo = -1
-		}
+
 		if response.Data == nil {
 			{ // checks if requests uses forms or JSON and parses then
 				c.Commenter = r.FormValue("commenter")
@@ -81,14 +92,8 @@ func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				sanitizeComment(c, s)
-
+				c.Commenter = r.Header.Get("authorized_username")
 				// this block checks for required fields
-				if c.Commenter == "" {
-					response.Data = jSendFailData{
-						ErrorReason:  "commenter",
-						ErrorMessage: "commenter is required",
-					}
-				}
 				if c.Content == "" {
 					response.Data = jSendFailData{
 						ErrorReason:  "content",
@@ -108,6 +113,13 @@ func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						response.Data = jSendFailData{
 							ErrorReason:  "postID",
 							ErrorMessage: "post not found",
+						}
+						statusCode = http.StatusNotFound
+					case comment.ErrCommentNotFound:
+						s.Logger.Printf("adding of comment failed because: %v", err)
+						response.Data = jSendFailData{
+							ErrorReason:  "commentID",
+							ErrorMessage: "comment being replied to not found",
 						}
 						statusCode = http.StatusNotFound
 					case comment.ErrUserNotFound:
@@ -135,25 +147,30 @@ func postComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// getComment returns a handler for GET /posts/{postID}/comments/{id} requests
-// it also handles /posts/{postID}/comments/{rootCommentID}/replies/{id} requests
+// getComment returns a handler for GET /posts/{postID}/comments/{commentID} requests
+// it also handles /posts/{postID}/comments/{commentID}/replies/{replyID} requests
 func getComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
 
-		idRaw := vars["id"]
+		vars := getParametersFromRequestAsMap(r)
+
+		idRaw, found := vars["replyID"]
+		if !found { // it is not reply
+			idRaw = vars["commentID"]
+		}
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			s.Logger.Printf("fetch attempt of non invalid comment id %s", idRaw)
+			s.Logger.Printf("fetch attempt of non invalid comment/reply id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "commentID",
-				ErrorMessage: fmt.Sprintf("invalid commentID %s", idRaw),
+				ErrorMessage: fmt.Sprintf("invalid commentID/replyID %s", idRaw),
 			}
 			statusCode = http.StatusBadRequest
 		}
+
 		if response.Data == nil {
 			c, err := s.CommentService.GetComment(id)
 			switch err {
@@ -186,14 +203,15 @@ func getComments(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+
+		vars := getParametersFromRequestAsMap(r)
 
 		postIDRaw := vars["postID"]
 		postID, err := strconv.Atoi(postIDRaw)
 		if err != nil {
 			s.Logger.Printf("post comment attempt on non invalid post id %s", postIDRaw)
 			response.Data = jSendFailData{
-				ErrorReason:  "releaseID",
+				ErrorReason:  "postID",
 				ErrorMessage: fmt.Sprintf("invalid post id %s", postIDRaw),
 			}
 			statusCode = http.StatusBadRequest
@@ -252,16 +270,17 @@ func getComments(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// getCommentReplies returns a handler for GET /posts/{postID}/comments/{rootCommentID}/replies?sort=new&limit=5&offset=0&pattern=Joe requests
+// getCommentReplies returns a handler for GET /posts/{postID}/comments/{commentID}/replies?sort=new&limit=5&offset=0&pattern=Joe requests
 func getCommentReplies(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
 
-		rootCommentIDRaw := vars["rootCommentID"]
+		vars := getParametersFromRequestAsMap(r)
+
+		rootCommentIDRaw := vars["commentID"]
 		commentID, err := strconv.Atoi(rootCommentIDRaw)
 		if err != nil {
 			s.Logger.Printf("post comment attempt on non invalid comment id %s", rootCommentIDRaw)
@@ -324,8 +343,8 @@ func getCommentReplies(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// patchComment returns a handler for PATCH /posts/{postID}/comments/{id} requests
-// it also handles /posts/{postID}/comments/{rootCommentID}/replies/{id} requests
+// patchComment returns a handler for PATCH /posts/{postID}/comments/{commentID} requests
+// it also handles /posts/{postID}/comments/{commentID}/replies/{replyID} requests
 func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
@@ -334,18 +353,22 @@ func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 		c := new(comment.Comment)
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 
-		idRaw := vars["id"]
+		idRaw, found := vars["replyID"]
+		if !found { // it is not reply
+			idRaw = vars["commentID"]
+		}
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
-			s.Logger.Printf("fetch attempt of non invalid comment id %s", idRaw)
+			s.Logger.Printf("fetch attempt of non invalid comment/reply id %s", idRaw)
 			response.Data = jSendFailData{
 				ErrorReason:  "commentID",
-				ErrorMessage: fmt.Sprintf("invalid commentID %s", idRaw),
+				ErrorMessage: fmt.Sprintf("invalid commentID/replyID %s", idRaw),
 			}
 			statusCode = http.StatusBadRequest
 		}
+
 		c.ID = id
 		{ // this block secures the route
 			if temp, err := s.CommentService.GetComment(id); err == nil {
@@ -362,10 +385,8 @@ func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		}
 		if response.Data == nil {
 			{ // checks if requests uses forms or JSON and parses then
-				c.Commenter = r.FormValue("content")
-				if c.Commenter != "" {
-
-				} else {
+				c.Content = r.FormValue("content")
+				if c.Content == "" {
 					err = json.NewDecoder(r.Body).Decode(c)
 					if err != nil {
 						// TODO format
@@ -385,7 +406,7 @@ func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				// this block checks for required fields
 				if c.Content == "" {
 					// no update able data
-					statusCode = http.StatusNoContent
+					statusCode = http.StatusOK
 					c, err = s.CommentService.GetComment(id)
 					switch err {
 					case nil:
@@ -427,18 +448,29 @@ func patchComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// deleteComment returns a handler for DELETE /posts/{postID}/comments/{id} requests
-// it also handles /posts/{postID}/comments/{rootCommentID}/replies/{id} requests
+// deleteComment returns a handler for DELETE /posts/{postID}/comments/{commentID} requests
+// it also handles /posts/{postID}/comments/{commentID}/replies/{replyID} requests
 func deleteComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 
-		idRaw := vars["id"]
-		id, _ := strconv.Atoi(idRaw)
+		idRaw, found := vars["replyID"]
+		if !found { // it is not reply
+			idRaw = vars["commentID"]
+		}
+		id, err := strconv.Atoi(idRaw)
+		if err != nil {
+			s.Logger.Printf("fetch attempt of non invalid comment/reply id %s", idRaw)
+			response.Data = jSendFailData{
+				ErrorReason:  "commentID",
+				ErrorMessage: fmt.Sprintf("invalid commentID/replyID %s", idRaw),
+			}
+			statusCode = http.StatusBadRequest
+		}
 
 		{ // this block secures the route
 			if temp, err := s.CommentService.GetComment(id); err == nil {
@@ -453,7 +485,7 @@ func deleteComment(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		err := s.CommentService.DeleteComment(id)
+		err = s.CommentService.DeleteComment(id)
 		if err != nil {
 			s.Logger.Printf("deletion of comment failed because: %v", err)
 			response.Status = "error"
