@@ -94,8 +94,6 @@ func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				c.Name = r.FormValue("name")
 				c.Description = r.FormValue("description")
 			} else {
-				//append(c.AdminUsernames, username)
-				//c.OwnerUsername=username
 				err := json.NewDecoder(r.Body).Decode(&c)
 				if err != nil {
 					response.Data = jSendFailData{
@@ -136,6 +134,9 @@ func postChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			if response.Data == nil {
 				s.Logger.Printf("trying to add channel %s %s %s ", c.ChannelUsername, c.Name, c.Description)
 				if &c != nil {
+					owner := r.Header.Get("authorized_username")
+					c.OwnerUsername = owner
+					c.AdminUsernames = append(c.AdminUsernames, owner)
 					a, err := s.ChannelService.AddChannel(c)
 					switch err {
 					case nil:
@@ -193,7 +194,12 @@ func putChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users updating of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -367,7 +373,12 @@ func deleteChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -414,9 +425,13 @@ func getAdmins(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting admins of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
-
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
 				if adminUsername[i] == r.Header.Get("authorized_username") {
@@ -473,8 +488,12 @@ func putAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 		{
 			// this block blocks users updating of admins of  channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
-
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			s.Logger.Printf(r.Header.Get("authorized_username"))
@@ -545,7 +564,12 @@ func deleteAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		{
 
 			//// this block blocks users deleting of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.OwnerUsername
 
 			if adminUsername != r.Header.Get("authorized_username") {
@@ -601,7 +625,12 @@ func getOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting owners of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -657,7 +686,12 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users updating owner of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			ownerUsername := c.OwnerUsername
 			if ownerUsername != r.Header.Get("authorized_username") {
 				if _, err := s.ChannelService.GetChannel(channelUsername); err == nil {
@@ -719,7 +753,12 @@ func getCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting Catalog of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -830,7 +869,12 @@ func deleteReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Requ
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -903,9 +947,13 @@ func deleteReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *h
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
-
 			one := false
 			for i := 0; i < len(adminUsername); i++ {
 				if adminUsername[i] == r.Header.Get("authorized_username") {
@@ -975,7 +1023,12 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users get release of catalog of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -1208,8 +1261,8 @@ func putReleaseInCatalog(d *Setup) func(w http.ResponseWriter, r *http.Request) 
 						}
 					}
 					if !found {
-						d.Logger.Printf("unauthorized delete release of channel attempt")
-						w.WriteHeader(http.StatusUnauthorized)
+						d.Logger.Printf("Channel %s not found", rel.OwnerChannel)
+						w.WriteHeader(http.StatusForbidden)
 						return
 					}
 				} else {
@@ -1322,11 +1375,11 @@ func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request)
 						return
 					}
 				} else {
-					s.Logger.Printf("post attempt on channel on non existent channel %s", newRelease.OwnerChannel)
-					response.Data = jSendFailData{
-						ErrorReason:  "channelUsername",
-						ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", newRelease.OwnerChannel),
-					}
+
+					s.Logger.Printf("Channel %s not found", newRelease.OwnerChannel)
+					w.WriteHeader(http.StatusForbidden)
+					return
+
 				}
 			}
 			if response.Data == nil {
@@ -1416,9 +1469,9 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 		response.Status = "fail"
 		vars := mux.Vars(r)
 
-		channelname := vars["channelUsername"]
+		channelUsername := vars["channelUsername"]
 		{ // this block secures the route
-			if c, err := s.ChannelService.GetChannel(channelname); err == nil {
+			if c, err := s.ChannelService.GetChannel(channelUsername); err == nil {
 				found := false
 				for _, username := range c.AdminUsernames {
 					if username == r.Header.Get("authorized_username") {
@@ -1431,12 +1484,12 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 					return
 				}
 			} else {
-				s.Logger.Printf("put attempt on channel on non existent channel %s", channelname)
-				response.Data = jSendFailData{
-					ErrorReason:  "channelUsername",
-					ErrorMessage: fmt.Sprintf("channel of channelUsername %s not found", channelname),
-				}
+
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
 			}
+
 		}
 		if response.Data == nil {
 			idRaw := vars["releaseID"]
@@ -1467,10 +1520,10 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 				// if queries are clean
 				if response.Data == nil {
 
-					err := s.ChannelService.AddReleaseToOfficialCatalog(channelname, uint(releaseID), requestData.PostID)
+					err := s.ChannelService.AddReleaseToOfficialCatalog(channelUsername, uint(releaseID), requestData.PostID)
 					switch err {
 					case nil:
-						s.Logger.Printf("success adding release %d from post %d to official catalog channel %s", releaseID, requestData.PostID, channelname)
+						s.Logger.Printf("success adding release %d from post %d to official catalog channel %s", releaseID, requestData.PostID, channelUsername)
 						response.Status = "success"
 
 					case channel.ErrPostNotFound:
@@ -1682,7 +1735,12 @@ func deleteStickiedPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting stickied post of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -1753,10 +1811,9 @@ func stickyPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
 			c, err := s.ChannelService.GetChannel(channelUsername)
 			if err != nil {
-				s.Logger.Printf("unauthorized sticky a post in channel attempt")
-				w.WriteHeader(http.StatusUnauthorized)
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
 				return
-
 			}
 			adminUsername := c.AdminUsernames
 
@@ -1878,7 +1935,12 @@ func putChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false
@@ -1973,7 +2035,12 @@ func deleteChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
-			c, _ := s.ChannelService.GetChannel(channelUsername)
+			c, err := s.ChannelService.GetChannel(channelUsername)
+			if err != nil {
+				s.Logger.Printf("Channel %s not found", channelUsername)
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			adminUsername := c.AdminUsernames
 
 			one := false

@@ -199,7 +199,8 @@ func getRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					case nil:
 						isOfficial := false
 						for _, relID := range c.OfficialReleaseIDs {
-							if id == relID {
+
+							if (uint(id)) == relID {
 								isOfficial = true
 							}
 						}

@@ -101,6 +101,7 @@ func NewMux(s *Setup) *httprouter.Router {
 	attachReleaseRoutesToRouters(mainRouter, secureRouter, s)
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
+	attachChannelRoutesToRouters(mainRouter, secureRouter, s)
 
 	mainRouter.HandlerFunc("GET", "/search", getSearch(s))
 
@@ -158,6 +159,36 @@ func attachCommentRoutesToRouters(mainRouter, secureRouter *httprouter.Router, s
 	secureRouter.HandlerFunc(http.MethodPost, "/posts/:postID/comments/:commentID/replies", postComment(setup))
 	secureRouter.HandlerFunc(http.MethodPatch, "/posts/:postID/comments/:commentID/replies/:replyID", patchComment(setup))
 	secureRouter.HandlerFunc(http.MethodGet, "/posts/:postID/comments/:commentID/replies/:replyID", deleteComment(setup))
+}
+func attachChannelRoutesToRouters(mainRouter, secureRouter *httprouter.Router, setup *Setup) {
+	mainRouter.HandlerFunc("POST", "/channels", postChannel(setup))
+	mainRouter.HandlerFunc("GET", "/channels", getChannels(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}", getChannel(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}", putChannel(setup))
+	secureRouter.HandlerFunc("DELETE", "/channels/{channelUsername}", deleteChannel(setup))
+	secureRouter.HandlerFunc("GET", "/channels/{channelUsername}/admins", getAdmins(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/admins/{adminUsername}", putAdmin(setup))
+	secureRouter.HandlerFunc("DELETE", "/channels/{channelUsername}/admins/{adminUsername}", deleteAdmin(setup))
+	secureRouter.HandlerFunc("GET", "/channels/{channelUsername}/owners", getOwner(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/owners/{ownerUsername}", putOwner(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/Posts", getChannelPosts(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/Posts/{postID}", getChannelPost(setup))
+	secureRouter.HandlerFunc("GET", "/channels/{channelUsername}/catalog", getCatalog(setup))
+	secureRouter.HandlerFunc("DELETE", "/channels/{channelUsername}/catalogs/{catalogID}", deleteReleaseFromCatalog(setup))
+	secureRouter.HandlerFunc("GET", "/channels/{channelUsername}/official/{catalogID}", deleteReleaseFromOfficialCatalog(setup))
+	secureRouter.HandlerFunc("GET", "/channels/{channelUsername}/catalogs/{catalogID}", getReleaseFromCatalog(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/official/{catalogID}", getReleaseFromOfficialCatalog(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/official", getOfficialCatalog(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/catalogs/{catalogID}", putReleaseInCatalog(setup))
+	secureRouter.HandlerFunc("POST", "/channels/{channelUsername}/catalogs}", postReleaseInCatalog(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/official/{releaseID}", putReleaseInOfficialCatalog(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/stickiedPosts", getStickiedPosts(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/Posts/{postID}", stickyPost(setup))
+	secureRouter.HandlerFunc("DELETE", "/channels/{channelUsername}/stickiedPosts/{stickiedPostID}", deleteStickiedPost(setup))
+	secureRouter.HandlerFunc("PUT", "/channels/{channelUsername}/picture", putChannelPicture(setup))
+	mainRouter.HandlerFunc("GET", "/channels/{channelUsername}/picture", getChannelPicture(setup))
+	secureRouter.HandlerFunc("DELETE", "/channels/{channelUsername}/picture", deleteChannelPicture(setup))
+
 }
 
 // Old gorilla trappings, just comment out
