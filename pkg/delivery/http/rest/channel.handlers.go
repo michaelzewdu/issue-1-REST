@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/channel"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/release"
 
@@ -33,7 +32,7 @@ func getChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 
 		s.Logger.Printf("trying to fetch channel %s", channelUsername)
@@ -190,7 +189,7 @@ func putChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users updating of channel if is not the admin of the channel herself accessing the route
@@ -369,7 +368,7 @@ func deleteChannel(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var err error
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting of channel if is not the admin of the channel herself accessing the route
@@ -421,7 +420,7 @@ func getAdmins(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting admins of channel if is not the admin of the channel herself accessing the route
@@ -483,7 +482,7 @@ func putAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 
 		{
@@ -559,7 +558,7 @@ func deleteAdmin(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 
@@ -621,12 +620,13 @@ func getOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting owners of channel if is not the admin of the channel herself accessing the route
 			c, err := s.ChannelService.GetChannel(channelUsername)
 			if err != nil {
+				s.Logger.Printf("c %s", channelUsername)
 				s.Logger.Printf("Channel %s not found", channelUsername)
 				w.WriteHeader(http.StatusForbidden)
 				return
@@ -682,7 +682,7 @@ func putOwner(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users updating owner of channel if is not the admin of the channel herself accessing the route
@@ -749,7 +749,7 @@ func getCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users getting Catalog of channel if is not the admin of the channel herself accessing the route
@@ -821,7 +821,7 @@ func getOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		c, err := s.ChannelService.GetChannel(channelUsername)
 		switch err {
@@ -865,7 +865,7 @@ func deleteReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Requ
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
@@ -943,7 +943,7 @@ func deleteReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *h
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting release from catalog of channel if is not the admin of the channel herself accessing the route
@@ -1019,7 +1019,7 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users get release of catalog of channel if is not the admin of the channel herself accessing the route
@@ -1068,7 +1068,7 @@ func getReleaseFromCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request
 						temp, err := s.ReleaseService.GetRelease(catalog)
 						if err == nil {
 							releases = append(releases, temp)
-							s.Logger.Printf("here")
+
 						} else {
 							releases = append(releases, catalog)
 							s.Logger.Printf(err.Error())
@@ -1114,7 +1114,7 @@ func getReleaseFromOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 
 		ReleaseID, errC := strconv.Atoi(vars["catalogID"])
@@ -1182,7 +1182,7 @@ func putReleaseInCatalog(d *Setup) func(w http.ResponseWriter, r *http.Request) 
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -1359,7 +1359,7 @@ func postReleaseInCatalog(s *Setup) func(w http.ResponseWriter, r *http.Request)
 		}
 		if response.Data == nil {
 
-			vars := mux.Vars(r)
+			vars := getParametersFromRequestAsMap(r)
 			newRelease.OwnerChannel = vars["channelUsername"]
 			{
 				if c, err := s.ChannelService.GetChannel(newRelease.OwnerChannel); err == nil {
@@ -1467,7 +1467,7 @@ func putReleaseInOfficialCatalog(s *Setup) func(w http.ResponseWriter, r *http.R
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 
 		channelUsername := vars["channelUsername"]
 		{ // this block secures the route
@@ -1567,7 +1567,7 @@ func getChannelPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		c, err := s.ChannelService.GetChannel(channelUsername)
 		postID, errC := strconv.Atoi(vars["postID"])
@@ -1632,7 +1632,7 @@ func getChannelPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 
 		c, err := s.ChannelService.GetChannel(channelUsername)
@@ -1680,7 +1680,7 @@ func getStickiedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		c, err := s.ChannelService.GetChannel(channelUsername)
 
@@ -1731,7 +1731,7 @@ func deleteStickiedPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users deleting stickied post of channel if is not the admin of the channel herself accessing the route
@@ -1805,7 +1805,7 @@ func stickyPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		var response jSendResponse
 		response.Status = "fail"
 		statusCode := http.StatusOK
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
@@ -1898,7 +1898,7 @@ func getChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 
 		c, err := s.ChannelService.GetChannel(channelUsername)
@@ -1931,7 +1931,7 @@ func putChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route
@@ -2031,7 +2031,7 @@ func deleteChannelPicture(s *Setup) func(http.ResponseWriter, *http.Request) {
 		var response jSendResponse
 		statusCode := http.StatusOK
 		response.Status = "fail"
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		channelUsername := vars["channelUsername"]
 		{
 			// this block blocks users sticking a post of channel if is not the admin of the channel herself accessing the route

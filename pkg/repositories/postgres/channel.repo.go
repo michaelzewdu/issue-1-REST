@@ -28,8 +28,17 @@ func (repo *channelRepository) AddChannel(c *channel.Channel) (*channel.Channel,
 
 	_, err = repo.db.Exec(`INSERT INTO "issue#1".channels (username, name, description)
 							VALUES ($1, $2, $3)`, c.ChannelUsername, c.Name, c.Description)
+
 	if err != nil {
-		return nil, fmt.Errorf("insertion of user failed because of: %s", err.Error())
+		return nil, fmt.Errorf("insertion of channel failed because of: %s", err.Error())
+	}
+	err = repo.AddAdmin(c.ChannelUsername, c.OwnerUsername)
+	if err != nil {
+		return nil, fmt.Errorf("insertion of admin user failed because of: %s", err.Error())
+	}
+	err = repo.ChangeOwner(c.ChannelUsername, c.OwnerUsername)
+	if err != nil {
+		return nil, fmt.Errorf("insertion of admin user failed because of: %s", err.Error())
 	}
 
 	return c, nil
@@ -461,7 +470,7 @@ func (repo *channelRepository) ChangeOwner(channelUsername string, ownerUsername
 		}
 		return fmt.Errorf("changing of owner failed because of: %s", err.Error())
 	}
-	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins SET is_owner = $3 where channel_username=$1 AND  "user"<>$2`, channelUsername, ownerUsername, !owner)
+	_, err = repo.db.Exec(`UPDATE "issue#1".channel_admins SET is_owner = $3 where channel_username=$1 AND  username<>$2`, channelUsername, ownerUsername, !owner)
 	if err != nil {
 		return fmt.Errorf("changing of owner failed because of: %s", err.Error())
 	}
