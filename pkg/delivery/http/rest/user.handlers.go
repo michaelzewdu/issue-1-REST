@@ -28,9 +28,12 @@ func sanitizeUser(u *user.User, s *Setup) {
 	u.MiddleName = html.EscapeString(u.MiddleName)
 	u.LastName = html.EscapeString(u.LastName)
 	u.Bio = html.EscapeString(u.Bio)
+
 }
 
 var emailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
+var usernameRX = regexp.MustCompile("^[a-zA-Z]?(?:[_]?[a-zA-Z0-9])*$")
 
 // postUser returns a handler for POST /users requests
 func postUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +85,11 @@ func postUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 					ErrorReason:  "username",
 					ErrorMessage: "username length shouldn't be shorter that 5 and longer than 24 chars",
 				}
-				// TODO check for invalid username strings
+			case !usernameRX.MatchString(u.Username):
+				response.Data = jSendFailData{
+					ErrorReason:  "username",
+					ErrorMessage: fmt.Sprintf("username given not valid given is not valid, use pattern %s", usernameRX.String()),
+				}
 			case u.Password == "":
 				response.Data = jSendFailData{
 					ErrorReason:  "password",
@@ -351,6 +358,13 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						}
 						break
 					}
+					if !usernameRX.MatchString(u.Username) {
+						response.Data = jSendFailData{
+							ErrorReason:  "username",
+							ErrorMessage: fmt.Sprintf("username given not valid given is not valid, use pattern %s", usernameRX.String()),
+						}
+						break
+					}
 				}
 				if u.Email != "" {
 					if !emailRX.MatchString(u.Email) {
@@ -361,12 +375,14 @@ func putUser(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						break
 					}
 				}
-				if len(u.Password) < 8 {
-					response.Data = jSendFailData{
-						ErrorReason:  "password",
-						ErrorMessage: "password length shouldn't be shorter that 8 chars",
+				if u.Password != "" {
+					if len(u.Password) < 8 {
+						response.Data = jSendFailData{
+							ErrorReason:  "password",
+							ErrorMessage: "password length shouldn't be shorter that 8 chars",
+						}
+						break
 					}
-					break
 				}
 				fallthrough
 			default:
