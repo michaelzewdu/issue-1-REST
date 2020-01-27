@@ -425,7 +425,7 @@ func getUserBookmarks(s *Setup) func(http.ResponseWriter, *http.Request) {
 			// TODO get bookmarks
 			bookmarks := make(map[time.Time]interface{})
 			for t, id := range u.BookmarkedPosts {
-				if temp, err := s.PostService.GetPost(id); err == nil {
+				if temp, err := s.PostService.GetPost(uint(id)); err == nil {
 					bookmarks[t] = temp
 				} else {
 					bookmarks[t] = id

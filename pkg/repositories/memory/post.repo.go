@@ -6,17 +6,17 @@ import (
 
 //postRepository ...
 type postRepository struct {
-	cache         map[int]post.Post
+	cache         map[uint]post.Post
 	secondaryRepo *post.Repository
 }
 
 // NewPostRepository returns a struct that implements the post.Repository using
 func NewPostRepository(secondaryRepo *post.Repository) post.Repository {
-	return &postRepository{cache: make(map[int]post.Post), secondaryRepo: secondaryRepo}
+	return &postRepository{cache: make(map[uint]post.Post), secondaryRepo: secondaryRepo}
 }
 
 // cachePost is just a helper function to update the cache with new states of the struct
-func (repo *postRepository) cachePost(id int) error {
+func (repo *postRepository) cachePost(id uint) error {
 	u, err := (*repo.secondaryRepo).GetPost(id)
 	if err != nil {
 		return err
@@ -26,12 +26,12 @@ func (repo *postRepository) cachePost(id int) error {
 }
 
 // GetPost gets the Post stored under the given id.
-func (repo *postRepository) GetPost(id int) (*post.Post, error) {
+func (repo *postRepository) GetPost(id uint) (*post.Post, error) {
 
 	if _, ok := repo.cache[id]; ok == false {
 		r, err := (*repo.secondaryRepo).GetPost(id)
 		if err != nil {
-			return nil, post.ErrPostNotFound
+			return nil, err
 		}
 		repo.cache[id] = *r
 	}
@@ -41,7 +41,7 @@ func (repo *postRepository) GetPost(id int) (*post.Post, error) {
 }
 
 // DeletePost Deletes the Post stored under the given id.
-func (repo *postRepository) DeletePost(id int) error {
+func (repo *postRepository) DeletePost(id uint) error {
 	_, found := repo.cache[id]
 	if !found {
 		return post.ErrPostNotFound
@@ -63,7 +63,7 @@ func (repo *postRepository) AddPost(p *post.Post) (*post.Post, error) {
 }
 
 //UpdatePost updates the post with given id and post struct
-func (repo *postRepository) UpdatePost(pos *post.Post, id int) (*post.Post, error) {
+func (repo *postRepository) UpdatePost(pos *post.Post, id uint) (*post.Post, error) {
 	_, found := repo.cache[id]
 	if !found {
 		return nil, post.ErrPostNotFound
@@ -88,7 +88,7 @@ func (repo *postRepository) SearchPost(pattern string, by post.SortBy, order pos
 }
 
 // GetPostStar gets the star stored under the given postid and username.
-func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, error) {
+func (repo *postRepository) GetPostStar(id uint, username string) (*post.Star, error) {
 	_, found := repo.cache[id]
 	if !found {
 		return nil, post.ErrPostNotFound
@@ -101,28 +101,28 @@ func (repo *postRepository) GetPostStar(id int, username string) (*post.Star, er
 }
 
 //DeletePostStar deletes the star stored under given postid and username
-func (repo *postRepository) DeletePostStar(id int, username string) error {
+func (repo *postRepository) DeletePostStar(id uint, username string) error {
 	_, found := repo.cache[id]
 	if !found {
 		return post.ErrPostNotFound
 	}
 	err := (*repo.secondaryRepo).DeletePostStar(id, username)
 	if err != nil {
-		return post.ErrUserNotFound
+		return err
 	}
 	err = repo.cachePost(id)
 	return err
 }
 
 //AddPostStar adds a star given postid, number of stars and username
-func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, error) {
+func (repo *postRepository) AddPostStar(id uint, star *post.Star) (*post.Star, error) {
 	_, found := repo.cache[id]
 	if !found {
 		return nil, post.ErrPostNotFound
 	}
 	s, err := (*repo.secondaryRepo).AddPostStar(id, star)
 	if err != nil {
-		return nil, post.ErrUserNotFound
+		return nil, err
 	}
 	errs := repo.cachePost(id)
 	if errs != nil {
@@ -132,14 +132,14 @@ func (repo *postRepository) AddPostStar(id int, star *post.Star) (*post.Star, er
 }
 
 //UpdatePostStar updates a star stored given postid, number of stars and username
-func (repo *postRepository) UpdatePostStar(id int, star *post.Star) (*post.Star, error) {
+func (repo *postRepository) UpdatePostStar(id uint, star *post.Star) (*post.Star, error) {
 	_, found := repo.cache[id]
 	if !found {
 		return nil, post.ErrPostNotFound
 	}
 	s, err := (*repo.secondaryRepo).UpdatePostStar(id, star)
 	if err != nil {
-		return nil, post.ErrUserNotFound
+		return nil, err
 	}
 	errs := repo.cachePost(id)
 	if errs != nil {

@@ -3,12 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/slim-crown/issue-1-REST/pkg/services/domain/feed"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/slim-crown/issue-1-REST/pkg/services/domain/feed"
 )
 
 // getFeed returns a handler for GET /users/{username}/feed requests
@@ -121,7 +122,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				response.Status = "success"
 				truePosts := make([]interface{}, 0)
 				for _, pID := range posts {
-					if temp, err := s.PostService.GetPost(pID.ID); err == nil {
+					if temp, err := s.PostService.GetPost(uint(pID.ID)); err == nil {
 						truePosts = append(truePosts, temp)
 					} else {
 						truePosts = append(truePosts, pID)

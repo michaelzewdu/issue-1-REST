@@ -8,28 +8,28 @@ import (
 
 // Service specifies a method to service Release entities.
 type Service interface {
-	GetPost(id int) (*Post, error)
-	DeletePost(id int) error
+	GetPost(id uint) (*Post, error)
+	DeletePost(id uint) error
 	AddPost(p *Post) (*Post, error)
-	UpdatePost(pos *Post, id int) (*Post, error)
+	UpdatePost(pos *Post, id uint) (*Post, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
-	GetPostStar(id int, username string) (*Star, error)
-	DeletePostStar(id int, username string) error
-	AddPostStar(id int, star *Star) (*Star, error)
-	UpdatePostStar(id int, star *Star) (*Star, error)
+	GetPostStar(id uint, username string) (*Star, error)
+	DeletePostStar(id uint, username string) error
+	AddPostStar(id uint, star *Star) (*Star, error)
+	UpdatePostStar(id uint, star *Star) (*Star, error)
 }
 
 // Repository specifies a repo interface to serve the Post Service interface
 type Repository interface {
-	GetPost(id int) (*Post, error)
-	DeletePost(id int) error
+	GetPost(id uint) (*Post, error)
+	DeletePost(id uint) error
 	AddPost(p *Post) (*Post, error)
-	UpdatePost(pos *Post, id int) (*Post, error)
+	UpdatePost(pos *Post, id uint) (*Post, error)
 	SearchPost(pattern string, by SortBy, order SortOrder, limit int, offset int) ([]*Post, error)
-	GetPostStar(id int, username string) (*Star, error)
-	DeletePostStar(id int, username string) error
-	AddPostStar(id int, star *Star) (*Star, error)
-	UpdatePostStar(id int, star *Star) (*Star, error)
+	GetPostStar(id uint, username string) (*Star, error)
+	DeletePostStar(id uint, username string) error
+	AddPostStar(id uint, star *Star) (*Star, error)
+	UpdatePostStar(id uint, star *Star) (*Star, error)
 }
 
 // SortOrder holds enums used by SearchPost methods the order of Users are sorted with
@@ -74,7 +74,7 @@ func NewService(repo *Repository) Service {
 }
 
 // GetPost gets the Post stored under the given id.
-func (s service) GetPost(id int) (*Post, error) {
+func (s service) GetPost(id uint) (*Post, error) {
 	p, err := (*s.repo).GetPost(id)
 	if err != nil {
 		return nil, ErrPostNotFound
@@ -84,7 +84,7 @@ func (s service) GetPost(id int) (*Post, error) {
 }
 
 // DeletePost Deletes the Post stored under the given id.
-func (s service) DeletePost(id int) error {
+func (s service) DeletePost(id uint) error {
 	err := (*s.repo).DeletePost(id)
 	if err != nil {
 		return ErrPostNotFound
@@ -100,7 +100,7 @@ func (s service) AddPost(p *Post) (*Post, error) {
 }
 
 //UpdatePost updates the post with given id and post struct
-func (s service) UpdatePost(pos *Post, id int) (*Post, error) {
+func (s service) UpdatePost(pos *Post, id uint) (*Post, error) {
 	return (*s.repo).UpdatePost(pos, id)
 }
 
@@ -111,16 +111,16 @@ func (s service) SearchPost(pattern string, by SortBy, order SortOrder, limit in
 	return (*s.repo).SearchPost(pattern, by, order, limit, offset)
 
 }
-func (s service) GetPostStar(id int, username string) (*Star, error) {
+func (s service) GetPostStar(id uint, username string) (*Star, error) {
 	return (*s.repo).GetPostStar(id, username)
 }
-func (s service) DeletePostStar(id int, username string) error {
+func (s service) DeletePostStar(id uint, username string) error {
 
 	return (*s.repo).DeletePostStar(id, username)
 }
-func (s service) AddPostStar(id int, star *Star) (*Star, error) {
+func (s service) AddPostStar(id uint, star *Star) (*Star, error) {
 	return (*s.repo).AddPostStar(id, star)
 }
-func (s service) UpdatePostStar(id int, star *Star) (*Star, error) {
+func (s service) UpdatePostStar(id uint, star *Star) (*Star, error) {
 	return (*s.repo).UpdatePostStar(id, star)
 }
