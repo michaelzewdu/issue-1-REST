@@ -48,7 +48,10 @@ func (repo commentRepository) GetComment(id int) (*comment.Comment, error) {
 				WHERE id = $1`
 	err = repo.db.QueryRow(query, id).Scan(&c.OriginPost, &c.Commenter, &c.Content, &c.ReplyTo, &c.CreationTime)
 	if err != nil {
-		return nil, comment.ErrCommentNotFound
+		if err == sql.ErrNoRows {
+			return nil, comment.ErrCommentNotFound
+		}
+		return nil, fmt.Errorf("unable to get comment from db becaues: %v", err)
 	}
 	c.ID = id
 	return c, nil

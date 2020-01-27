@@ -43,7 +43,7 @@ var ErrPostNotFound = fmt.Errorf("post not found")
 // ErrUserNotFound is returned when the the username specified isn't recognized
 var ErrUserNotFound = fmt.Errorf("user not found")
 
-// ErrSomeUserDataNotPersisted is returned when the the username specified isn't recognized
+// ErrSomeCommentDataNotPersisted is returned when the the username specified isn't recognized
 var ErrSomeCommentDataNotPersisted = fmt.Errorf("was not able to persist some user data")
 
 // ErrCommentNotFound is returned when the requested comment is not found
@@ -60,6 +60,15 @@ func NewService(repo *Repository) Service {
 
 // AddComment adds an new comment based on the passed in struct
 func (s service) AddComment(c *Comment) (*Comment, error) {
+	if c.ReplyTo != -1 {
+		if temp, err := s.GetComment(c.ReplyTo); err != nil {
+			return nil, err
+		} else {
+			if temp.OriginPost != c.OriginPost {
+				return nil, ErrCommentNotFound
+			}
+		}
+	}
 	return (*s.repo).AddComment(c)
 }
 

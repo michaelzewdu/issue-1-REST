@@ -3,8 +3,10 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 	"time"
+
+	"github.com/lib/pq"
 
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/user"
 )
@@ -25,10 +27,14 @@ func NewUserRepository(DB *sql.DB, allRepos *map[string]interface{}) user.Reposi
 // AddUser takes in a user.User struct and persists it in the database.
 func (repo *userRepository) AddUser(u *user.User) (*user.User, error) {
 	var err error
-	_, err = repo.db.Exec(`INSERT INTO "issue#1".users (username, email, pass_hash)
-							VALUES ($1, $2, $3)`, u.Username, u.Email, u.Password)
+	passHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("insertion of user failed because of: %v", err)
+		return nil, fmt.Errorf("unable to generate bcrypt has because: %w", err)
+	}
+	_, err = repo.db.Exec(`INSERT INTO "issue#1".users (username, email, pass_hash)
+							VALUES ($1, $2, $3)`, u.Username, u.Email, string(passHash))
+	if err != nil {
+		return nil, fmt.Errorf("insertion of user failed because of: %w", err)
 	}
 
 	// set the username to zero to avoid call to UpdateUser won't do redundant updating of username
@@ -52,7 +58,10 @@ func (repo *userRepository) GetUser(username string) (*user.User, error) {
 								FROM users LEFT JOIN users_bio ub on users.username = ub.username LEFT JOIN user_avatars ua on users.username = ua.username
 								WHERE users.username = $1`, username).Scan(&u.Email, &u.FirstName, &u.MiddleName, &u.LastName, &u.CreationTime, &u.Bio, &u.PictureURL)
 	if err != nil {
-		return nil, user.ErrUserNotFound
+		if err == sql.ErrNoRows {
+			return nil, user.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("unable to get user from db becaues: %v", err)
 	}
 
 	bookmarkedPosts, err := repo.getBookmarkedPosts(username)
@@ -67,7 +76,6 @@ func (repo *userRepository) GetUser(username string) (*user.User, error) {
 
 // getBookmarkedPosts is just a helper function
 func (repo *userRepository) getBookmarkedPosts(username string) (map[time.Time]int, error) {
-	// TODO test this method
 	var bookmarkedPosts = make(map[time.Time]int, 0)
 
 	rows, err := repo.db.Query(`SELECT post_id, creation_time
@@ -107,16 +115,14 @@ func (repo *userRepository) UpdateUser(username string, u *user.User) (*user.Use
 	// }
 	// Checks if value is to be updated before attempting.
 	// This way, there won't be columns with go's zero string value of "" instead of null
-	if u.Username != "" {
-		err := repo.execUpdateStatementOnColumn("username", u.Username, username)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		// change username for subsequent calls if username changed
-		username = u.Username
-	}
 	if u.Password != "" {
-		err := repo.execUpdateStatementOnColumn("pass_hash", u.Password, username)
+
+		passHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate bcrypt has because: %w", err)
+		}
+
+		err = repo.execUpdateStatementOnColumn("pass_hash", string(passHash), username)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -153,6 +159,14 @@ func (repo *userRepository) UpdateUser(username string, u *user.User) (*user.Use
 		if err != nil {
 			errs = append(errs, fmt.Errorf("upsertion of bio failed because of: %v", err))
 		}
+	}
+	if u.Username != "" {
+		err := repo.execUpdateStatementOnColumn("username", u.Username, username)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		// change username for subsequent calls if username changed
+		username = u.Username
 	}
 	/*
 		if u.PictureURL != "" {
@@ -246,20 +260,51 @@ func (repo *userRepository) SearchUser(pattern, sortBy, sortOrder string, limit,
 	return users, nil
 }
 
-// PassHashIsCorrect checks the given pass hash against the pass hash found in the database for the username.
-func (repo *userRepository) PassHashIsCorrect(username, passHash string) bool {
-	var temp string
-	err := repo.db.QueryRow(`SELECT username FROM "issue#1".users
-							WHERE username = $1 AND pass_hash = $2`, username, passHash).Scan(&temp)
+// Authenticate checks the given pass hash against the pass hash found in the database for the username.
+func (repo *userRepository) Authenticate(u *user.User) (bool, error) {
+	/*	var hashedPassword string
+		{
+			// this block hashes the password
+			cat := u.Password + u.Username
+			hashedPasswordArr := sha512.Sum512([]byte(cat))
+			hashedPassword = hex.EncodeToString(hashedPasswordArr[:])
+		}
+	*/
+	query := `
+SELECT EXISTS(
+               SELECT username
+               FROM users
+               WHERE username = $2
+                 AND pass_hash = sha512(
+                       ($1 || $2)::bytea
+                   )::text
+           )
+           OR
+       EXISTS(
+               SELECT username
+               FROM users
+               WHERE email = $3
+                 AND pass_hash = sha512(
+                       ($1
+                           ||
+                        (
+                            SELECT username
+                            from users
+                            where email = $3
+                        )
+                           )::bytea
+                   )::text
+           )`
+	var accepted bool
+	err := repo.db.QueryRow(query, u.Password, u.Username, u.Email).Scan(&accepted)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("couldn't authenticate user beacause: %w", err)
 	}
-	return true
+	return accepted, nil
 }
 
 // BookmarkPost bookmarks the given postID for the user of the given username.
 func (repo *userRepository) BookmarkPost(username string, postID int) error {
-	// TODO code for upserts in feed repo
 	_, err := repo.db.Exec(`INSERT INTO user_bookmarks (username, post_id)
 							VALUES ($1, $2)
 							ON CONFLICT DO NOTHING`, username, postID)

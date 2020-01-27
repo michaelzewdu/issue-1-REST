@@ -2,11 +2,10 @@ package rest
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"strings"
-
-	"gopkg.in/russross/blackfriday.v2"
 
 	"encoding/json"
 
@@ -15,19 +14,22 @@ import (
 )
 
 func sanitizePost(p *post.Post, s *Setup) {
-	p.PostedByUsername = s.StrictSanitizer.Sanitize(p.PostedByUsername)
-	// TODO validate email
-	p.OriginChannel = s.StrictSanitizer.Sanitize(p.OriginChannel)
-	p.Title = s.StrictSanitizer.Sanitize(p.Title)
-	p.Description = string(s.MarkupSanitizer.SanitizeBytes(
-		blackfriday.Run(
-			[]byte(p.Description),
-			blackfriday.WithExtensions(blackfriday.CommonExtensions),
-		),
-	))
-	if p.Description == "<p></p>\n" {
-		p.Description = ""
-	}
+	// p.PostedByUsername = s.StrictSanitizer.Sanitize(p.PostedByUsername)
+	// p.OriginChannel = s.StrictSanitizer.Sanitize(p.OriginChannel)
+	// p.Title = s.StrictSanitizer.Sanitize(p.Title)
+	// p.Description = string(s.MarkupSanitizer.SanitizeBytes(
+	// 	blackfriday.Run(
+	// 		[]byte(p.Description),
+	// 		blackfriday.WithExtensions(blackfriday.CommonExtensions),
+	// 	),
+	// ))
+	// if p.Description == "<p></p>\n" {
+	// 	p.Description = ""
+	// }
+	p.PostedByUsername = html.EscapeString(p.PostedByUsername)
+	p.OriginChannel = html.EscapeString(p.OriginChannel)
+	p.Title = html.EscapeString(p.Title)
+	p.Description = html.EscapeString(p.Description)
 }
 
 // GET: /posts/:id ...getpost(id)

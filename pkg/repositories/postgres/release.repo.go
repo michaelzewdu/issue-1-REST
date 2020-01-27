@@ -28,7 +28,10 @@ func (repo releaseRepository) GetRelease(id int) (*release.Release, error) {
 				WHERE id = $1`
 	err = repo.db.QueryRow(query, id).Scan(&typeString, &r.OwnerChannel, &r.CreationTime)
 	if err != nil {
-		return nil, release.ErrReleaseNotFound
+		if err == sql.ErrNoRows {
+			return nil, release.ErrReleaseNotFound
+		}
+		return nil, fmt.Errorf("unable to get release from db becaues: %v", err)
 	}
 	r.Type = release.Type(typeString)
 	content, err := repo.getContent(id, r.Type)
@@ -54,36 +57,73 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 	var rows *sql.Rows
 	var query string
 	if pattern == "" {
-		query = fmt.Sprintf(`SELECT id, owner_channel, type, creation_time
-									FROM (
-									    (SELECT *
-									       FROM releases) as "r*"
-									    NATURAL JOIN
-									    (SELECT *
-									        FROM channel_official_catalog) as "coc*"
-									        )
-									ORDER BY %s %s NULLS LAST
-									LIMIT $1 OFFSET $2`, by, order)
+		query = fmt.Sprintf(`
+				SELECT id, owner_channel, content, type, creation_time
+				FROM (
+				         SELECT *
+				         FROM releases
+				                  LEFT JOIN
+				              (
+				                  SELECT release_id, content
+				                  FROM (
+				                           SELECT release_id, image_name as content
+				                           FROM releases_image_based
+				                       ) AS ric
+				                  UNION
+				                  SELECT *
+				                  FROM releases_text_based
+				              ) AS cs
+				              ON releases.id = cs.release_id
+				     ) AS "r*"
+				         NATURAL JOIN
+				     (
+				         SELECT release_id
+		FROM "issue#1".channel_official_catalog
+		WHERE channel_username )
+				     ) AS "coc*"
+				ORDER BY %s %s NULLS LAST
+				LIMIT $1 OFFSET $2`, by, order)
 		rows, err = repo.db.Query(query, limit, offset)
 	} else {
-		query = fmt.Sprintf(`
-				SELECT id, owner_channel, type, creation_time
+		query = `
+				SELECT id, owner_channel, content, type, creation_time
 				FROM (
-				      (SELECT ts_rank(vector, query, 32) as rank, *
-				       FROM (
-				             (select release_id as id, vector, query
-				              from release_tsvs,
-				                   websearch_to_tsquery('simple', $1) query
-				              where vector @@ query
-				             ) as rti
-				                NATURAL JOIN releases
-				           )) as "r*"
+				         SELECT *
+				         FROM (
+				                  SELECT ts_rank(vector, query, 32) as rank, *
+				                  FROM (
+				                           SELECT release_id as id, vector, query
+				                           FROM tsvs_release,
+				                                websearch_to_tsquery('english', $1) query
+				                           where vector @@ query
+				                       ) AS rti
+				                           NATURAL JOIN
+				                       releases
+				              ) AS rc
+				                  LEFT JOIN
+				              (
+				                  SELECT release_id, content
+				                  FROM (
+				                           SELECT release_id, image_name as content
+				                           FROM releases_image_based
+				                       ) AS ric
+				                  UNION
+				                  SELECT *
+				                  FROM releases_text_based
+				              ) AS cs
+				              ON rc.id = cs.release_id
+				     ) AS "rc**"
 				         NATURAL JOIN
-				     (SELECT *
-				      FROM channel_official_catalog) as "coc*"
-				         )
-				ORDER BY rank DESC, %s %s NULLS LAST
-				LIMIT $2 OFFSET $3`, by, order)
+				     (
+				         SELECT release_id
+				         FROM channel_official_catalog
+				     ) AS "coc*"
+				ORDER BY rank DESC`
+		if by != "" {
+			query = fmt.Sprintf(`%s, %s %s NULLS LAST`, query, by, order)
+		}
+		query = fmt.Sprintf(`%s 
+				LIMIT $2 OFFSET $3`, query)
 		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
 	if err != nil {
@@ -92,8 +132,7 @@ func (repo releaseRepository) SearchRelease(pattern string, by release.SortBy, o
 	defer rows.Close()
 	for rows.Next() {
 		r := new(release.Release)
-		// TODO check if type casting works
-		err := rows.Scan(&r.ID, &r.OwnerChannel, &r.Type, &r.CreationTime)
+		err := rows.Scan(&r.ID, &r.OwnerChannel, &r.Content, &r.Type, &r.CreationTime)
 		if err != nil {
 			return nil, fmt.Errorf("scanning from rows failed because: %v", err)
 		}
@@ -213,7 +252,7 @@ func (repo releaseRepository) execUpdateStatementOnColumnIntoReleases(column, va
 }
 
 func (repo releaseRepository) execUpdateStatementOnColumnIntoMetadata(column string, value interface{}, id int) error {
-	query := fmt.Sprintf(`INSERT INTO metadata (release_id, %s)
+	query := fmt.Sprintf(`INSERT INTO release_metadata (release_id, %s)
 								VALUES ($1, $2)
 								ON CONFLICT(release_id) DO UPDATE
 								SET %s = $2`, column, column)
@@ -227,12 +266,12 @@ func (repo releaseRepository) execUpdateStatementOnColumnIntoMetadata(column str
 func (repo releaseRepository) execUpdateStatementForContent(t release.Type, value string, id int) error {
 	var query string
 	if t == release.Image {
-		query = `INSERT INTO image_based (release_id, image_name)
+		query = `INSERT INTO releases_image_based (release_id, image_name)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET image_name = $2`
 	} else {
-		query = `INSERT INTO text_based (release_id, content)
+		query = `INSERT INTO releases_text_based (release_id, content)
 				VALUES ($1, $2)
 				ON CONFLICT(release_id) DO UPDATE
 				SET content = $2`
@@ -248,11 +287,11 @@ func (repo releaseRepository) getContent(id int, t release.Type) (string, error)
 	var content, query string
 	if t == release.Image {
 		query = `SELECT COALESCE(image_name, '') 
-				FROM image_based 
+				FROM releases_image_based 
 				WHERE release_id = $1`
 	} else {
 		query = `SELECT COALESCE(content, '') 
-				FROM text_based 
+				FROM releases_text_based 
 				WHERE release_id = $1`
 	}
 	err := repo.db.QueryRow(query, id).Scan(&content)
@@ -272,7 +311,7 @@ func (repo releaseRepository) getMetadata(id int) (*release.Metadata, error) {
 	var otherJSON string
 
 	query := `SELECT COALESCE(title, ''), COALESCE(description, ''), COALESCE(genre_defining, ''), COALESCE(release_date, to_timestamp(0)), COALESCE(other, jsonb_build_object())
-				FROM metadata
+				FROM release_metadata
 				WHERE release_id = $1`
 	err = repo.db.QueryRow(query, id).Scan(&meta.Title, &meta.Description, &meta.GenreDefining, &meta.ReleaseDate, &otherJSON)
 	if err != nil {

@@ -9,11 +9,11 @@ type commentRepository struct {
 	secondaryRepo *comment.Repository
 }
 
-// NewReleaseRepository returns a struct that implements the comment.Repository using
+// NewCommentRepository returns a struct that implements the comment.Repository using
 // a cached based implementation.
 // A database implementation of the same interface needs to be passed so that it can be
 // consulted when the caches aren't enough.
-func NewRepository(secondaryRepo *comment.Repository) comment.Repository {
+func NewCommentRepository(secondaryRepo *comment.Repository) comment.Repository {
 	return &commentRepository{make(map[int]comment.Comment), secondaryRepo}
 }
 

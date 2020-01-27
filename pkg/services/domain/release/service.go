@@ -36,7 +36,7 @@ const (
 	SortDescending SortOrder = "DESC"
 
 	SortCreationTime SortBy = "creation_time"
-	SortByOwner      SortBy = "owner_channel"
+	SortByChannel    SortBy = "owner_channel"
 	SortByType       SortBy = "type"
 )
 
@@ -97,7 +97,7 @@ func (s service) DeleteRelease(id int) error {
 // based on the passed in struct.
 func (s service) UpdateRelease(r *Release) (*Release, error) {
 	if rel, err := s.GetRelease(r.ID); err != nil {
-		return s.AddRelease(r)
+		return nil, err
 	} else {
 		if r.Type != "" && r.Type != rel.Type {
 			return nil, ErrAttemptToChangeReleaseType

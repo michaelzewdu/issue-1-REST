@@ -3,8 +3,6 @@ Package user contains definition and implementation of a service that deals with
 package user
 
 import (
-	"crypto/sha512"
-	"encoding/hex"
 	"fmt"
 )
 
@@ -29,7 +27,7 @@ type Repository interface {
 	UpdateUser(username string, u *User) (*User, error)
 	DeleteUser(username string) error
 	SearchUser(pattern, sortBy, sortOrder string, limit, offset int) ([]*User, error)
-	PassHashIsCorrect(username, passHash string) bool
+	Authenticate(u *User) (bool, error)
 	BookmarkPost(username string, postID int) error
 	DeleteBookmark(username string, postID int) error
 	UsernameOccupied(username string) (bool, error)
@@ -105,14 +103,6 @@ func (service *service) AddUser(u *User) (*User, error) {
 			return nil, fmt.Errorf("couldn't check if email occupied because of: %s", err.Error())
 		}
 	}
-	var hashedPassword string
-	{
-		// this block hashes the password
-		cat := u.Password + u.Username
-		hashedPasswordArr := sha512.Sum512([]byte(cat))
-		hashedPassword = hex.EncodeToString(hashedPasswordArr[:])
-	}
-	u.Password = hashedPassword
 	return (*service.repo).AddUser(u)
 }
 
@@ -123,13 +113,15 @@ func (service *service) GetUser(username string) (*User, error) {
 
 // UpdateUser updates the user of the given username according to the User struct given
 func (service *service) UpdateUser(u *User, username string) (*User, error) {
-	if _, err := service.GetUser(username); err != nil {
+	if _, err := service.GetUser(username); err == ErrUserNotFound {
 		if u.Username == "" || u.Username == username {
 			u.Username = username
 			return service.AddUser(u)
 		} else {
 			return nil, err
 		}
+	} else if err != nil {
+		return nil, err
 	}
 	// Checks if username is trying to be changed, then if the new username is occupied
 	if u.Username != "" {
@@ -159,19 +151,9 @@ func (service *service) SearchUser(pattern string, sortBy SortBy, sortOrder Sort
 	return (*service.repo).SearchUser(pattern, string(sortBy), string(sortOrder), limit, offset)
 }
 
-// Authenticate checks the given pass hash against the pass hash found in the database for the username.
+// Authenticate checks if the given the credentials in the given struct is correct.
 func (service *service) Authenticate(u *User) (bool, error) {
-	if _, err := service.GetUser(u.Username); err != nil {
-		return false, err
-	}
-	var hashedPassword string
-	{
-		// this block hashes the password
-		cat := u.Password + u.Username
-		hashedPasswordArr := sha512.Sum512([]byte(cat))
-		hashedPassword = hex.EncodeToString(hashedPasswordArr[:])
-	}
-	return (*service.repo).PassHashIsCorrect(u.Username, hashedPassword), nil
+	return (*service.repo).Authenticate(u)
 }
 
 // BookmarkPost bookmarks the given postID for the user of the given username.
