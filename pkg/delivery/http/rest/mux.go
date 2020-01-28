@@ -102,6 +102,7 @@ func NewMux(s *Setup) *httprouter.Router {
 	attachFeedRoutesToRouters(secureRouter, s)
 	attachCommentRoutesToRouters(mainRouter, secureRouter, s)
 	attachChannelRoutesToRouters(mainRouter, secureRouter, s)
+	attachPostRoutesToRouters(mainRouter, secureRouter, s)
 
 	mainRouter.HandlerFunc("GET", "/search", getSearch(s))
 
@@ -189,6 +190,19 @@ func attachChannelRoutesToRouters(mainRouter, secureRouter *httprouter.Router, s
 	mainRouter.HandlerFunc("GET", "/channels/:channelUsername/picture", getChannelPicture(setup))
 	secureRouter.HandlerFunc("DELETE", "/channels/:channelUsername/picture", deleteChannelPicture(setup))
 
+}
+func attachPostRoutesToRouters(mainRouter, secureRouter *httprouter.Router, setup *Setup) {
+	mainRouter.HandlerFunc("GET", "/posts", getPosts(setup))
+	secureRouter.HandlerFunc("POST", "/posts", postPost(setup))
+	//TODO secure these routes
+	mainRouter.HandlerFunc("GET", "/posts/:postID", getPost(setup))
+	secureRouter.HandlerFunc("PUT", "/posts/:postID", putPost(setup))
+	secureRouter.HandlerFunc("DELETE", "/posts/:postID", deletePost(setup))
+	mainRouter.HandlerFunc("GET", "/posts/:postID/releases", getPostReleases(setup))
+	//mainRouter.HandlerFunc("GET","/posts/:postID/comments", getPostComments(setup))
+	mainRouter.HandlerFunc("GET", "/posts/:postID/stars", getPostStars(setup))
+	mainRouter.HandlerFunc("GET", "/posts/:postID/stars/:username", getPostStar(setup))
+	secureRouter.HandlerFunc("PUT", "/posts/:postID/stars", putPostStar(setup))
 }
 
 // Old gorilla trappings, just comment out

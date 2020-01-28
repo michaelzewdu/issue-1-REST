@@ -1587,7 +1587,7 @@ func getChannelPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						response.Status = "success"
 						postid := postID
 
-						if temp, err := s.PostService.GetPost(postid); err == nil {
+						if temp, err := s.PostService.GetPost(uint(postID)); err == nil {
 							response.Data = temp
 						} else {
 
@@ -1643,7 +1643,7 @@ func getChannelPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 			posts := make([]interface{}, 0)
 
 			for _, pID := range postid {
-				if temp, err := s.PostService.GetPost(int(pID)); err == nil {
+				if temp, err := s.PostService.GetPost(pID); err == nil {
 
 					posts = append(posts, *temp)
 				} else {
@@ -1693,7 +1693,7 @@ func getStickiedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 
 			for _, pID := range postID {
 
-				if temp, err := s.PostService.GetPost(int(pID)); err == nil {
+				if temp, err := s.PostService.GetPost(pID); err == nil {
 					fmt.Printf("here12")
 					posts = append(posts, temp)
 				} else {

@@ -9,7 +9,6 @@ import (
 
 	"encoding/json"
 
-	"github.com/gorilla/mux"
 	"github.com/slim-crown/issue-1-REST/pkg/services/domain/post"
 )
 
@@ -40,7 +39,7 @@ func getPost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -206,7 +205,7 @@ func putPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 
 		id, err := strconv.Atoi(idRaw)
@@ -321,7 +320,7 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 
 		id, err := strconv.Atoi(idRaw)
@@ -405,7 +404,7 @@ func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -460,7 +459,7 @@ func getPostComments(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -599,7 +598,7 @@ func getPostStars(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -657,7 +656,7 @@ func getPostStar(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		response.Status = "fail"
 		statusCode := http.StatusOK
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 		id, err := strconv.Atoi(idRaw)
 		username := vars["username"]
@@ -716,7 +715,7 @@ func putPostStar(s *Setup) func(http.ResponseWriter, *http.Request) {
 		statusCode := http.StatusOK
 		response.Status = "fail"
 
-		vars := mux.Vars(r)
+		vars := getParametersFromRequestAsMap(r)
 		idRaw := vars["id"]
 
 		id, err := strconv.Atoi(idRaw)

@@ -123,7 +123,7 @@ func getFeedPosts(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 				response.Status = "success"
 				truePosts := make([]interface{}, 0)
 				for _, pID := range posts {
-					if temp, err := s.PostService.GetPost(pID.ID); err == nil {
+					if temp, err := s.PostService.GetPost(uint(pID.ID)); err == nil {
 						truePosts = append(truePosts, temp)
 					} else {
 						truePosts = append(truePosts, pID)
