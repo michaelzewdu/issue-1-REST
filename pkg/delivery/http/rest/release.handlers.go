@@ -206,9 +206,6 @@ func getRelease(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 						}
 						if isOfficial { // return the release if official
 							response.Status = "success"
-							if rel.Type == release.Image {
-								rel.Content = s.HostAddress + s.ImageServingRoute + url.PathEscape(rel.Content)
-							}
 							response.Data = *rel
 							s.Logger.Printf("success fetching release %d from an offical catalog", id)
 							break

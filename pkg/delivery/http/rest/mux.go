@@ -95,6 +95,9 @@ func NewMux(s *Setup) *httprouter.Router {
 	rootRouter.NotFound = ParseAuthTokenMiddleware(s)(mainRouter)
 	mainRouter.NotFound = CheckForAuthMiddleware(s)(secureRouter)
 
+	fs := http.FileServer(http.Dir(s.ImageStoragePath))
+	rootRouter.Handler("GET", s.ImageServingRoute+"*filepath", http.StripPrefix(s.ImageServingRoute, fs))
+
 	// attach routes
 	attachAuthRoutesToRouters(mainRouter, secureRouter, s)
 	attachUserRoutesToRouters(mainRouter, secureRouter, s)

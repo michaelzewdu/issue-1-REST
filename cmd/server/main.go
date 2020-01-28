@@ -151,7 +151,7 @@ func main() {
 	}
 
 	setup.ImageServingRoute = "/images/"
-	setup.ImageStoragePath = "data/images/"
+	setup.ImageStoragePath = "data/images"
 	setup.HostAddress = "localhost"
 	setup.Port = "8080"
 
