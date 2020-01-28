@@ -40,7 +40,7 @@ func getPost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
@@ -206,7 +206,7 @@ func putPost(s *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -321,7 +321,7 @@ func deletePost(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
@@ -405,7 +405,7 @@ func getPostReleases(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
@@ -460,7 +460,7 @@ func getPostComments(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
@@ -599,7 +599,7 @@ func getPostStars(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
 			d.Logger.Printf("fetch attempt of non invalid post id %s", idRaw)
@@ -657,7 +657,7 @@ func getPostStar(d *Setup) func(w http.ResponseWriter, r *http.Request) {
 		statusCode := http.StatusOK
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 		id, err := strconv.Atoi(idRaw)
 		username := vars["username"]
 
@@ -716,7 +716,7 @@ func putPostStar(s *Setup) func(http.ResponseWriter, *http.Request) {
 		response.Status = "fail"
 
 		vars := getParametersFromRequestAsMap(r)
-		idRaw := vars["id"]
+		idRaw := vars["postID"]
 
 		id, err := strconv.Atoi(idRaw)
 		if err != nil {
