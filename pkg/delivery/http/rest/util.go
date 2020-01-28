@@ -38,6 +38,8 @@ func getParametersFromRequestAsMap(r *http.Request) map[string]string {
 // writeResponseToWriter is a helper function.
 func writeResponseToWriter(response jSendResponse, w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "http://localhost:8081")
+	w.Header().Add("Vary", "Origin")
 	w.WriteHeader(statusCode)
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "\t\t")

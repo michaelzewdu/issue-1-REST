@@ -19,7 +19,7 @@ COMMENT ON EXTENSION citext IS 'data type for case-insensitive character strings
 
 CREATE FUNCTION "issue#1".setup_user() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+AS $$
 BEGIN
     insert into channels(username, name)
     values (new.username, new.username || '''s channel');
@@ -40,7 +40,7 @@ ALTER FUNCTION "issue#1".setup_user() OWNER TO "issue#1_dev";
 
 CREATE FUNCTION "issue#1".tsv_comment_trigger() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+AS $$
 DECLARE
     tsv tsvector := ''::tsvector;
 BEGIN
@@ -66,7 +66,7 @@ ALTER FUNCTION "issue#1".tsv_comment_trigger() OWNER TO "issue#1_dev";
 
 CREATE FUNCTION "issue#1".tsv_on_metadata_update_trigger() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+AS $$
 DECLARE
     tsv tsvector := ''::tsvector;
 BEGIN
@@ -128,7 +128,7 @@ ALTER FUNCTION "issue#1".tsv_on_metadata_update_trigger() OWNER TO "issue#1_dev"
 
 CREATE FUNCTION "issue#1".tsv_post_trigger() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+AS $$
 DECLARE
     tsv tsvector := ''::tsvector;
 BEGIN
@@ -158,7 +158,7 @@ ALTER FUNCTION "issue#1".tsv_post_trigger() OWNER TO "issue#1_dev";
 
 CREATE FUNCTION "issue#1".tsv_text_based_update_trigger() RETURNS trigger
     LANGUAGE plpgsql
-    AS $$
+AS $$
 DECLARE
     tsv tsvector := ''::tsvector;
 BEGIN
@@ -201,9 +201,9 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE "issue#1".channel_admins (
-    channel_username character varying(24) NOT NULL,
-    username character varying(24) NOT NULL,
-    is_owner boolean NOT NULL
+                                          channel_username character varying(24) NOT NULL,
+                                          username character varying(24) NOT NULL,
+                                          is_owner boolean NOT NULL
 );
 
 
@@ -214,9 +214,9 @@ ALTER TABLE "issue#1".channel_admins OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".channel_official_catalog (
-    channel_username character varying(24) NOT NULL,
-    release_id integer NOT NULL,
-    post_from_id integer NOT NULL
+                                                    channel_username character varying(24) NOT NULL,
+                                                    release_id integer NOT NULL,
+                                                    post_from_id integer NOT NULL
 );
 
 
@@ -227,8 +227,8 @@ ALTER TABLE "issue#1".channel_official_catalog OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".channel_pictures (
-    channelname character varying(24) NOT NULL,
-    image_name text NOT NULL
+                                            channelname character varying(24) NOT NULL,
+                                            image_name text NOT NULL
 );
 
 
@@ -250,10 +250,10 @@ ALTER TABLE "issue#1".channel_stickies OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".channels (
-    username character varying(24) NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    name character varying(80) NOT NULL,
-    description text
+                                    username character varying(24) NOT NULL,
+                                    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+                                    name character varying(80) NOT NULL,
+                                    description text
 );
 
 
@@ -264,12 +264,12 @@ ALTER TABLE "issue#1".channels OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".comments (
-    post_from integer NOT NULL,
-    id integer NOT NULL,
-    reply_to integer NOT NULL,
-    content text NOT NULL,
-    commented_by character varying(24) NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+                                    post_from integer NOT NULL,
+                                    id integer NOT NULL,
+                                    reply_to integer NOT NULL,
+                                    content text NOT NULL,
+                                    commented_by character varying(24) NOT NULL,
+                                    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -281,12 +281,12 @@ ALTER TABLE "issue#1".comments OWNER TO "issue#1_dev";
 
 ALTER TABLE "issue#1".comments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME "issue#1".comments_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
+        START WITH 1
+        INCREMENT BY 1
+        NO MINVALUE
+        NO MAXVALUE
+        CACHE 1
+    );
 
 
 --
@@ -294,9 +294,9 @@ ALTER TABLE "issue#1".comments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY 
 --
 
 CREATE TABLE "issue#1".feed_subscriptions (
-    feed_id integer NOT NULL,
-    channel_username character varying(24) NOT NULL,
-    subscription_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+                                              feed_id integer NOT NULL,
+                                              channel_username character varying(24) NOT NULL,
+                                              subscription_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -307,9 +307,9 @@ ALTER TABLE "issue#1".feed_subscriptions OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".feeds (
-    owner_username character varying(24) NOT NULL,
-    sorting text NOT NULL,
-    id integer NOT NULL
+                                 owner_username character varying(24) NOT NULL,
+                                 sorting text NOT NULL,
+                                 id integer NOT NULL
 );
 
 
@@ -342,8 +342,8 @@ ALTER SEQUENCE "issue#1".feeds_id_seq OWNED BY "issue#1".feeds.id;
 --
 
 CREATE TABLE "issue#1".post_contents (
-    post_id integer NOT NULL,
-    release_id integer NOT NULL
+                                         post_id integer NOT NULL,
+                                         release_id integer NOT NULL
 );
 
 
@@ -354,12 +354,12 @@ ALTER TABLE "issue#1".post_contents OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".posts (
-    id integer NOT NULL,
-    description text,
-    title character varying(256) NOT NULL,
-    posted_by character varying(22) NOT NULL,
-    channel_from character varying(22) NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+                                 id integer NOT NULL,
+                                 description text,
+                                 title character varying(256) NOT NULL,
+                                 posted_by character varying(22) NOT NULL,
+                                 channel_from character varying(22) NOT NULL,
+                                 creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -392,9 +392,9 @@ ALTER SEQUENCE "issue#1".post_id_seq OWNED BY "issue#1".posts.id;
 --
 
 CREATE TABLE "issue#1".post_stars (
-    star_count integer NOT NULL,
-    post_id integer NOT NULL,
-    username character varying(22) NOT NULL
+                                      star_count integer NOT NULL,
+                                      post_id integer NOT NULL,
+                                      username character varying(22) NOT NULL
 );
 
 
@@ -405,12 +405,12 @@ ALTER TABLE "issue#1".post_stars OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".release_metadata (
-    release_id integer NOT NULL,
-    description text,
-    other jsonb,
-    genre_defining text,
-    release_date timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    title text
+                                            release_id integer NOT NULL,
+                                            description text,
+                                            other jsonb,
+                                            genre_defining text,
+                                            release_date timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+                                            title text
 );
 
 
@@ -421,10 +421,10 @@ ALTER TABLE "issue#1".release_metadata OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".releases (
-    id integer NOT NULL,
-    owner_channel character varying(24) NOT NULL,
-    type text NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+                                    id integer NOT NULL,
+                                    owner_channel character varying(24) NOT NULL,
+                                    type text NOT NULL,
+                                    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -435,8 +435,8 @@ ALTER TABLE "issue#1".releases OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".releases_image_based (
-    release_id integer NOT NULL,
-    image_name text NOT NULL
+                                                release_id integer NOT NULL,
+                                                image_name text NOT NULL
 );
 
 
@@ -447,8 +447,8 @@ ALTER TABLE "issue#1".releases_image_based OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".releases_text_based (
-    release_id integer NOT NULL,
-    content text NOT NULL
+                                               release_id integer NOT NULL,
+                                               content text NOT NULL
 );
 
 
@@ -481,8 +481,8 @@ ALTER SEQUENCE "issue#1".title_id_seq OWNED BY "issue#1".releases.id;
 --
 
 CREATE TABLE "issue#1".tsvs_comment (
-    comment_id integer NOT NULL,
-    vector tsvector
+                                        comment_id integer NOT NULL,
+                                        vector tsvector
 );
 
 
@@ -493,8 +493,8 @@ ALTER TABLE "issue#1".tsvs_comment OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".tsvs_posts (
-    post_id integer NOT NULL,
-    vector tsvector
+                                      post_id integer NOT NULL,
+                                      vector tsvector
 );
 
 
@@ -505,8 +505,8 @@ ALTER TABLE "issue#1".tsvs_posts OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".tsvs_release (
-    release_id integer NOT NULL,
-    vector tsvector
+                                        release_id integer NOT NULL,
+                                        vector tsvector
 );
 
 
@@ -517,8 +517,8 @@ ALTER TABLE "issue#1".tsvs_release OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".user_avatars (
-    username character varying(24) NOT NULL,
-    image_name text NOT NULL
+                                        username character varying(24) NOT NULL,
+                                        image_name text NOT NULL
 );
 
 
@@ -529,9 +529,9 @@ ALTER TABLE "issue#1".user_avatars OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".user_bookmarks (
-    username character varying(24) NOT NULL,
-    post_id integer NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+                                          username character varying(24) NOT NULL,
+                                          post_id integer NOT NULL,
+                                          creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -542,13 +542,13 @@ ALTER TABLE "issue#1".user_bookmarks OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".users (
-    email "issue#1".citext NOT NULL,
-    username character varying(24) NOT NULL,
-    creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    pass_hash text NOT NULL,
-    first_name character varying(30),
-    middle_name character varying(30),
-    last_name character varying(30)
+                                 email "issue#1".citext NOT NULL,
+                                 username character varying(24) NOT NULL,
+                                 creation_time timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+                                 pass_hash text NOT NULL,
+                                 first_name character varying(30),
+                                 middle_name character varying(30),
+                                 last_name character varying(30)
 );
 
 
@@ -559,8 +559,8 @@ ALTER TABLE "issue#1".users OWNER TO "issue#1_dev";
 --
 
 CREATE TABLE "issue#1".users_bio (
-    username character varying(24) NOT NULL,
-    bio text NOT NULL
+                                     username character varying(24) NOT NULL,
+                                     bio text NOT NULL
 );
 
 
@@ -594,6 +594,8 @@ ALTER TABLE ONLY "issue#1".releases ALTER COLUMN id SET DEFAULT nextval('"issue#
 INSERT INTO "issue#1".channel_admins VALUES ('chromagnum', 'rembrandt', true);
 INSERT INTO "issue#1".channel_admins VALUES ('chromagnum', 'loveless', false);
 INSERT INTO "issue#1".channel_admins VALUES ('IsisCane', 'IsisCane', true);
+INSERT INTO "issue#1".channel_admins VALUES ('haroma', 'haroma', true);
+INSERT INTO "issue#1".channel_admins VALUES ('faberge', 'faberge', true);
 
 
 --
@@ -622,6 +624,8 @@ INSERT INTO "issue#1".channel_official_catalog VALUES ('chromagnum', 6, 4);
 INSERT INTO "issue#1".channels VALUES ('chromagnum', '2019-12-29 19:59:22.564274+03', 'THE FUTURE IS NOW', 'take it off');
 INSERT INTO "issue#1".channels VALUES ('tempOne', '2020-01-22 20:19:15.71383+03', 'tempOne''s channel', NULL);
 INSERT INTO "issue#1".channels VALUES ('IsisCane', '2020-01-16 21:44:42.22749+03', 'Isis Cane''s channel', NULL);
+INSERT INTO "issue#1".channels VALUES ('haroma', '2020-01-26 19:42:52.97117+03', 'haroma''s channel', NULL);
+INSERT INTO "issue#1".channels VALUES ('faberge', '2020-01-26 20:10:16.561102+03', 'faberge''s channel', NULL);
 
 
 --
@@ -642,7 +646,6 @@ INSERT INTO "issue#1".comments OVERRIDING SYSTEM VALUE VALUES (5, 6, 3, '<p>the 
 --
 
 INSERT INTO "issue#1".feed_subscriptions VALUES (3, 'chromagnum', '2020-01-06 17:01:08.862048+03');
-INSERT INTO "issue#1".feed_subscriptions VALUES (5, 'chromagnum', '2020-01-23 00:00:18.241025+03');
 INSERT INTO "issue#1".feed_subscriptions VALUES (6, 'chromagnum', '2020-01-23 00:00:24.744977+03');
 INSERT INTO "issue#1".feed_subscriptions VALUES (7, 'chromagnum', '2020-01-23 00:00:30.243607+03');
 INSERT INTO "issue#1".feed_subscriptions VALUES (8, 'chromagnum', '2020-01-23 00:00:35.248254+03');
@@ -658,6 +661,8 @@ INSERT INTO "issue#1".feeds VALUES ('slimmy', 'top', 7);
 INSERT INTO "issue#1".feeds VALUES ('loveless', 'new', 5);
 INSERT INTO "issue#1".feeds VALUES ('rembrandtian', 'top', 6);
 INSERT INTO "issue#1".feeds VALUES ('IsisCane', 'hot', 8);
+INSERT INTO "issue#1".feeds VALUES ('haroma', 'hot', 15);
+INSERT INTO "issue#1".feeds VALUES ('faberge', 'hot', 16);
 
 
 --
@@ -690,6 +695,7 @@ INSERT INTO "issue#1".release_metadata VALUES (6, 'tips baby, tips', '{"genres":
 INSERT INTO "issue#1".release_metadata VALUES (53, 'a broken moon', '{"genres": ["Cartoon"], "authors": ["Rebbecca Sugar"]}', 'Cartoon', '2016-01-04 23:06:16.017584+03', 'Please don''t leave Pink...don''t leave please.');
 INSERT INTO "issue#1".release_metadata VALUES (52, 'Forget-this-not.', '{"genres": ["Omnious Message", "Prophecy"], "authors": ["Hooded Messenger"]}', 'Message', '2020-01-05 13:14:16.017584+03', 'The Journey Ends!');
 INSERT INTO "issue#1".release_metadata VALUES (54, 'Guidelines to the future and to the deep, honest, archaic path.', '{"genres": ["K-Pop"], "authors": ["Hooded Messenger"]}', 'Literature', '2020-12-05 13:14:16.017584+03', 'Above & Not There Yet.');
+INSERT INTO "issue#1".release_metadata VALUES (68, 'Full stop.', '{"genres": ["Catastrophe"], "authors": ["Man"]}', 'Atomic', '2020-01-24 23:16:09.273085+03', 'This is Not A Test');
 
 
 --
@@ -700,6 +706,7 @@ INSERT INTO "issue#1".releases VALUES (6, 'chromagnum', 'text', '2020-01-04 11:2
 INSERT INTO "issue#1".releases VALUES (52, 'chromagnum', 'text', '2020-01-05 13:18:43.7471+03');
 INSERT INTO "issue#1".releases VALUES (53, 'chromagnum', 'image', '2020-01-05 13:55:05.730832+03');
 INSERT INTO "issue#1".releases VALUES (54, 'chromagnum', 'text', '2020-01-12 18:05:22.383129+03');
+INSERT INTO "issue#1".releases VALUES (68, 'chromagnum', 'text', '2020-01-24 23:16:09.274719+03');
 
 
 --
@@ -728,9 +735,9 @@ mkdir slim-crown
 git clone https://github.com/slim-crown/issue-1-REST.git
 git clone https://github.com/slim-crown/issue-1-website.git
 ```
-	- if you are unlucky enough not to have Wi-Fi at home, ask me. I have 
+	- if you are unlucky enough not to have Wi-Fi at home, ask me. I have
 	tools that help.
-	
+
 - how to create your own branch from the next branch
 ```
 cd ~/go/src/github.com/slim-crown/issue-1-REST
@@ -758,11 +765,11 @@ run query
 	- lighting symbol on the tool bar
 do same for *issue#1.sql*
 	- order is essential
-	
+
 ## Project tips
 **READ THE WHOLE THING, DON''T STOP MIDWAY.**
-First of all, read the *Succesful Git Branching* article I sent to create a new branch and do work on. Don''t go ahead without reading that article. 
-Ask if you have any questions. 
+First of all, read the *Succesful Git Branching* article I sent to create a new branch and do work on. Don''t go ahead without reading that article.
+Ask if you have any questions.
 
 And also, use a simple text file to design and plan things ahead.
 
@@ -776,7 +783,7 @@ e.g
 and *especially* GET on all users which also includes our search option
 - GET 		/users?sortBy=creation-time&sortOrder=asc&limit=25&offset=0&pattern=John
 
-Implement the handlers first and as you go one, you''ll soon have a list of methods that you need your service to have which should make things easy. Go on and *specify* the methods on your Service *inteface*. 
+Implement the handlers first and as you go one, you''ll soon have a list of methods that you need your service to have which should make things easy. Go on and *specify* the methods on your Service *inteface*.
 
 Handlers are one of the toughest part to implement, with tricky logic and lots of error handling so be sure to look at the functions I did and ask questions about any constructs you don''y understand.
 
@@ -811,7 +818,7 @@ Next on, go to the memory implementation of the Repository. You''ll be implement
 Make sure the project runs, commit.
 
 Implement the same Repository using PostgreSQL.
-This will most likely be the hardest step I''m afraid where you might end up with a lot of errors. But, since lucky you did the handlers and the sercvice and stuff first, you''ll be able to test your methods right there and then. 
+This will most likely be the hardest step I''m afraid where you might end up with a lot of errors. But, since lucky you did the handlers and the sercvice and stuff first, you''ll be able to test your methods right there and then.
 
 Do that, **Create a pull request.**, boom. You''re done.
 
@@ -841,7 +848,7 @@ Use the following setup to plan your work.
 	- [x] Delete User
 	- [ ] Search User
 	- [x] Authorize User
-- [ ] HTTP handler functions 
+- [ ] HTTP handler functions
 	- [x] GET /users/{username}
 	- [x] GET /users
 	- [x] POST /users
@@ -867,6 +874,7 @@ Week 14 |	Internationalization and	 |	Use internationalization
 
 Also, project evaluation I is 20% compared to Project Evaluation II which is 10%.
 With such a big project as ours, we''re hard pressed to deliver our features by the first deadline.');
+INSERT INTO "issue#1".releases_text_based VALUES (68, '1 minute and 39 seconds to midnight.');
 
 
 --
@@ -898,6 +906,7 @@ INSERT INTO "issue#1".tsvs_release VALUES (6, '''/go/src/github.com'':20 ''/go/s
 INSERT INTO "issue#1".tsvs_release VALUES (53, '''broken'':4 ''cartoon'':6C,10B ''chromagnum'':1B ''imag'':2A ''leav'':14A,18A ''moon'':5 ''pink'':15A ''pleas'':11A,19A ''rebbecca'':8C ''sugar'':9C');
 INSERT INTO "issue#1".tsvs_release VALUES (52, '''27'':24 ''beckon'':18 ''call'':22 ''chromagnum'':1B ''clock'':26 ''edg'':17 ''end'':15A ''forget'':4 ''forget-this-not'':3 ''heed'':19 ''hood'':10C ''journey'':14A ''messag'':6C,12B ''messeng'':11C ''o'':25 ''omnious'':5C ''propheci'':8C ''text'':2A');
 INSERT INTO "issue#1".tsvs_release VALUES (54, '''archaic'':12 ''blue'':36 ''chromagnum'':1B ''deep'':10 ''feather'':29 ''futur'':6 ''guidelin'':3 ''honest'':11 ''hood'':18C ''k'':15C ''k-pop'':14C ''literatur'':20B ''messeng'':19C ''path'':13 ''pop'':16C ''ruffl'':27 ''see'':34 ''sky'':37 ''text'':2A ''wind'':26 ''yet'':24A,30');
+INSERT INTO "issue#1".tsvs_release VALUES (68, '''1'':14 ''39'':17 ''atom'':8B ''catastroph'':5C ''chromagnum'':1B ''full'':3 ''man'':7C ''midnight'':20 ''minut'':15 ''second'':18 ''stop'':4 ''test'':13A ''text'':2A');
 
 
 --
@@ -922,6 +931,8 @@ INSERT INTO "issue#1".user_bookmarks VALUES ('rembrandtian', 3, '2019-12-29 20:2
 -- Data for Name: users; Type: TABLE DATA; Schema: issue#1; Owner: issue#1_dev
 --
 
+INSERT INTO "issue#1".users VALUES ('dandelion@chroma.coma', 'haroma', '2020-01-26 19:42:52.97117+03', '$2a$10$68pXD8zRnV5hTj23nBX1Au3BpKeRXIrWQwUC0WI76kzCBf1PHUe86', 'Mag', NULL, 'Animal');
+INSERT INTO "issue#1".users VALUES ('shuggie@shag.sho', 'faberge', '2020-01-26 20:10:16.561102+03', '$2a$10$1sdp1No9bGp3jgDoHa8foe67UUa.GuSmllvk6wjZ46V9Kqxji4PP6', 'We', 'Are', 'Destroyer');
 INSERT INTO "issue#1".users VALUES ('yat@yayat.yat', 'slimmy', '2019-12-28 23:05:11.662742+03', '$2a$10$9tMmjrE2nv.KxvL0HIhk6.KmgwzPtX4MJ0YNSnEMNFjrERcJMjYRC', 'Kebab', 'Bab', 'Bob');
 INSERT INTO "issue#1".users VALUES ('stars@destination.com', 'loveless', '2020-01-08 01:49:31.153913+03', '$2a$10$Oiok9PFU7iPW4O2mDl/2iOr.13LAxO1CrggiHleTP5r3N7gPxGyv6', 'Jeff', 'k.', 'Shoes');
 INSERT INTO "issue#1".users VALUES ('serato@saskia.com', 'rembrandt', '2019-12-28 22:52:07.479752+03', '$2a$10$l689eOM7BwuHWqB9J0wM8OuGFiYXzJ0fo4UL1Dc2T.mRmLLvwys/e', 'Y.', 'A.', 'Knowe');
@@ -943,14 +954,14 @@ INSERT INTO "issue#1".users_bio VALUES ('IsisCane', 'War on your nation and fire
 -- Name: comments_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
-SELECT pg_catalog.setval('"issue#1".comments_id_seq', 8, true);
+SELECT pg_catalog.setval('"issue#1".comments_id_seq', 16, true);
 
 
 --
 -- Name: feeds_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
-SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 13, true);
+SELECT pg_catalog.setval('"issue#1".feeds_id_seq', 16, true);
 
 
 --
@@ -964,7 +975,7 @@ SELECT pg_catalog.setval('"issue#1".post_id_seq', 5, true);
 -- Name: title_id_seq; Type: SEQUENCE SET; Schema: issue#1; Owner: issue#1_dev
 --
 
-SELECT pg_catalog.setval('"issue#1".title_id_seq', 55, true);
+SELECT pg_catalog.setval('"issue#1".title_id_seq', 72, true);
 
 
 --

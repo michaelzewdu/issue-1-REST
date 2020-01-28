@@ -90,9 +90,6 @@ func (repo *ChannelRepository) SearchChannels(pattern string, sortBy channel.Sor
 		for _, c := range result {
 			cTemp := *c
 			repo.cache[c.ChannelUsername] = cTemp
-			c.Name = ""
-			// TODO
-
 		}
 	}
 	return result, err

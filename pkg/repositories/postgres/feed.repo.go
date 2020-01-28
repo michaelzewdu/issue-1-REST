@@ -123,41 +123,30 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 		rows, err = repo.db.Query(`
 		SELECT id
 		FROM	(SELECT id, creation_time
-				FROM posts
-				NATURAL JOIN
-				(SELECT username
-				FROM (
-						(
-						SELECT channel_username
-						FROM feed_subscriptions
-						WHERE feed_id = $1
-						) AS S (username)
-						NATURAL JOIN
-						channels
-					)
-				) AS C (channel_username)
-				) AS P
+				      FROM (
+				               SELECT channel_username
+				               FROM feed_subscriptions
+				               WHERE feed_id = $1
+				           ) AS C (channel_from)
+				               NATURAL JOIN
+				           posts
+				     ) AS P
 		ORDER BY creation_time DESC NULLS LAST LIMIT $2 OFFSET $3`, f.ID, limit, offset)
 	case feed.SortHot:
 		rows, err = repo.db.Query(`
 		SELECT post_id
 		FROM(SELECT LP.post_id, comment_count
-			FROM(SELECT *
+			FROM(
+			    SELECT *
 				FROM (SELECT id, creation_time
-						FROM posts
-						NATURAL JOIN
-							(SELECT username
-							FROM (
-								(
-								SELECT channel_username
-								FROM feed_subscriptions
-								WHERE feed_id = $1
-								) AS S (username)
-								NATURAL JOIN
-								channels
-								)
-							) AS C (channel_username)
-						) AS P
+				      FROM (
+				               SELECT channel_username
+				               FROM feed_subscriptions
+				               WHERE feed_id = $1
+				           ) AS C (channel_from)
+				               NATURAL JOIN
+				           posts
+				     ) AS P
 				ORDER BY creation_time DESC NULLS LAST
 				) AS LP (post_id)
 				LEFT JOIN
@@ -165,8 +154,8 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 				 FROM comments
 				 GROUP BY post_from
 				) AS PS (post_id, comment_count) ON LP.post_id = PS.post_id
-			ORDER BY creation_time DESC, comment_count DESC
-		) AS F
+			ORDER BY creation_time DESC
+		) AS F ORDER BY comment_count DESC NULLS LAST 
 		LIMIT $2 OFFSET $3`, f.ID, limit, offset)
 	case feed.NotSet:
 		fallthrough
@@ -176,22 +165,17 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 		rows, err = repo.db.Query(`
 		SELECT post_id
 		FROM(SELECT Lp.post_id, total_star_count
-			FROM(SELECT *
+			FROM(
+			    SELECT *
 				FROM (SELECT id, creation_time
-						FROM posts
-						NATURAL JOIN
-							(SELECT username
-							FROM (
-								(
-								SELECT channel_username
-								FROM feed_subscriptions
-								WHERE feed_id = $1
-								) AS S (username)
-								NATURAL JOIN
-								channels
-								)
-							) AS C (channel_username)
-						) AS P
+				      FROM (
+				               SELECT channel_username
+				               FROM feed_subscriptions
+				               WHERE feed_id = $1
+				           ) AS C (channel_from)
+				               NATURAL JOIN
+				           posts
+				     ) AS P
 				ORDER BY creation_time DESC NULLS LAST
 				) AS LP (post_id)
 				LEFT JOIN
@@ -199,8 +183,8 @@ func (repo *feedRepository) GetPosts(f *feed.Feed, sort feed.Sorting, limit, off
 				 FROM post_stars
 				 GROUP BY post_id
 				) AS PS (post_id, total_star_count) ON LP.post_id = PS.post_id
-			ORDER BY creation_time DESC, total_star_count DESC
-		) AS F
+			ORDER BY creation_time DESC
+		) AS F ORDER BY total_star_count DESC NULLS LAST 
 		LIMIT $2 OFFSET $3`, f.ID, limit, offset)
 	}
 	if err != nil {

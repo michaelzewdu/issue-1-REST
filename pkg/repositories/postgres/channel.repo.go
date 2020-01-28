@@ -323,7 +323,7 @@ func (repo *channelRepository) SearchChannels(pattern string, sortBy channel.Sor
 	} else {
 		query = `SELECT username,name, COALESCE(description, ''),creation_time 
 			from channels
-			where username like '%' || $1 || '%'  OR name  like '%' || $1|| '%'
+			where username ilike '%' || $1 || '%'  OR name  ilike '%' || $1|| '%'
 			LIMIT $2 OFFSET $3`
 		rows, err = repo.db.Query(query, pattern, limit, offset)
 	}
